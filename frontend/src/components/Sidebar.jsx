@@ -7,37 +7,73 @@ import {
   CalendarDays,
   Building2,
   Briefcase,
-  Layers,
   DollarSign,
   Bell,
   FileText,
   Shield,
   Clock3,
+  UserCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Sidebar = () => {
-  const { isAdmin } = useAuth();
+  const { role } = useAuth();
 
-  const navItems = [
-    { name: 'Dashboard', path: '/', icon: LayoutDashboard, role: 'all' },
-    { name: 'Attendance', path: '/attendance', icon: Clock, role: 'all' },
-    { name: 'Leaves', path: '/leaves', icon: CalendarDays, role: 'all' },
-    { name: 'Notifications', path: '/notifications', icon: Bell, role: 'all' },
-    
-    // Admin Only Modules
-    { name: 'Users', path: '/users', icon: Users, role: 'admin' },
-    { name: 'Departments', path: '/departments', icon: Building2, role: 'admin' },
-    { name: 'Designations', path: '/designations', icon: Briefcase, role: 'admin' },
-    { name: 'Shifts', path: '/shifts', icon: Clock3, role: 'admin' },
-    { name: 'Payroll', path: '/payrolls', icon: DollarSign, role: 'admin' },
-    { name: 'Reports', path: '/reports', icon: FileText, role: 'admin' },
-    { name: 'Roles', path: '/roles', icon: Shield, role: 'admin' },
-  ];
+  const getNavItems = () => {
+    switch (role) {
+      case 'ADMIN':
+        return [
+          { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+          { name: 'Users', path: '/users', icon: Users },
+          { name: 'Departments', path: '/departments', icon: Building2 },
+          { name: 'Designations', path: '/designations', icon: Briefcase },
+          { name: 'Shifts', path: '/shifts', icon: Clock3 },
+          { name: 'Attendance', path: '/attendance', icon: Clock },
+          { name: 'Leaves', path: '/leaves', icon: CalendarDays },
+          { name: 'Payroll', path: '/payrolls', icon: DollarSign },
+          { name: 'Reports', path: '/reports', icon: FileText },
+          { name: 'Roles', path: '/roles', icon: Shield },
+          { name: 'Notifications', path: '/notifications', icon: Bell },
+        ];
 
-  const filteredNavItems = navItems.filter(
-    (item) => item.role === 'all' || (item.role === 'admin' && isAdmin)
-  );
+      case 'HR':
+        return [
+          { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+          { name: 'Employees', path: '/users', icon: Users },
+          { name: 'Departments', path: '/departments', icon: Building2 },
+          { name: 'Designations', path: '/designations', icon: Briefcase },
+          { name: 'Shifts', path: '/shifts', icon: Clock3 },
+          { name: 'Attendance Logs', path: '/attendance', icon: Clock },
+          { name: 'Leave Requests', path: '/leaves', icon: CalendarDays },
+          { name: 'Payroll', path: '/payrolls', icon: DollarSign },
+          { name: 'HR Reports', path: '/reports', icon: FileText },
+          { name: 'Notifications', path: '/notifications', icon: Bell },
+        ];
+
+      case 'MANAGER':
+        return [
+          { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+          { name: 'Team Members', path: '/users', icon: Users },
+          { name: 'Team Attendance', path: '/attendance', icon: Clock },
+          { name: 'Team Leaves', path: '/leaves', icon: CalendarDays },
+          { name: 'Team Reports', path: '/reports', icon: FileText },
+          { name: 'Notifications', path: '/notifications', icon: Bell },
+        ];
+
+      case 'EMPLOYEE':
+      default:
+        return [
+          { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+          { name: 'My Attendance', path: '/attendance', icon: Clock },
+          { name: 'My Leaves', path: '/leaves', icon: CalendarDays },
+          { name: 'My Payroll', path: '/payrolls', icon: DollarSign },
+          { name: 'Notifications', path: '/notifications', icon: Bell },
+          { name: 'My Profile', path: '/profile', icon: UserCheck },
+        ];
+    }
+  };
+
+  const navItems = getNavItems();
 
   return (
     <aside className="sidebar">
@@ -47,7 +83,7 @@ const Sidebar = () => {
       </div>
 
       <nav className="sidebar-nav">
-        {filteredNavItems.map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon;
           return (
             <NavLink

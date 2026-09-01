@@ -1,5 +1,6 @@
 package com.hareeshvar.attendance.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -31,6 +32,37 @@ public class DataInitializer implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @Value("${app.sync-dev-passwords:true}")
+    private boolean syncDevPasswords;
+
+    @Value("${app.default-admin.username:admin}")
+    private String adminUsername;
+    @Value("${app.default-admin.password:admin123}")
+    private String adminPassword;
+    @Value("${app.default-admin.email:admin@attendance.com}")
+    private String adminEmail;
+
+    @Value("${app.default-hr.username:hr}")
+    private String hrUsername;
+    @Value("${app.default-hr.password:hr123}")
+    private String hrPassword;
+    @Value("${app.default-hr.email:hr@attendance.com}")
+    private String hrEmail;
+
+    @Value("${app.default-manager.username:manager}")
+    private String managerUsername;
+    @Value("${app.default-manager.password:manager123}")
+    private String managerPassword;
+    @Value("${app.default-manager.email:manager@attendance.com}")
+    private String managerEmail;
+
+    @Value("${app.default-employee.username:employee}")
+    private String employeeUsername;
+    @Value("${app.default-employee.password:employee123}")
+    private String employeePassword;
+    @Value("${app.default-employee.email:employee@attendance.com}")
+    private String employeeEmail;
+
     @Override
     public void run(String... args) throws Exception {
         log.info("Checking data initialization...");
@@ -47,87 +79,118 @@ public class DataInitializer implements CommandLineRunner {
             }
         }
 
-        Role adminRole = roleRepository.findByRoleName(RoleName.ADMIN)
-                .orElseThrow(() -> new RuntimeException("ADMIN role not found"));
-
-        // 2. Initialize Department if empty
-        Department defaultDepartment;
-        if (departmentRepository.count() == 0) {
-            defaultDepartment = Department.builder()
-                    .departmentName("Administration & HR")
+        // 2. Initialize Default Departments
+        Department hrDept = departmentRepository.findByDepartmentName("Human Resources").orElse(null);
+        if (hrDept == null) {
+            hrDept = Department.builder()
+                    .departmentName("Human Resources")
                     .departmentCode("HR01")
-                    .description("Default Administration Department")
+                    .description("Human Resources & Administration")
                     .status(DepartmentStatus.ACTIVE)
                     .build();
-            defaultDepartment = departmentRepository.save(defaultDepartment);
-            log.info("Initialized default department");
-        } else {
-            defaultDepartment = departmentRepository.findAll().get(0);
+            hrDept = departmentRepository.save(hrDept);
         }
 
-        // 3. Initialize Designation if empty
-        Designation defaultDesignation;
-        if (designationRepository.count() == 0) {
-            defaultDesignation = Designation.builder()
+        Department engineeringDept = departmentRepository.findByDepartmentName("Engineering").orElse(null);
+        if (engineeringDept == null) {
+            engineeringDept = Department.builder()
+                    .departmentName("Engineering")
+                    .departmentCode("ENG01")
+                    .description("Software & Product Engineering")
+                    .status(DepartmentStatus.ACTIVE)
+                    .build();
+            engineeringDept = departmentRepository.save(engineeringDept);
+        }
+
+        // 3. Initialize Default Designations
+        Designation adminDesig = designationRepository.findByDesignationName("System Administrator").orElse(null);
+        if (adminDesig == null) {
+            adminDesig = Designation.builder()
                     .designationName("System Administrator")
-                    .description("Default Admin Designation")
+                    .description("System Administrator")
                     .build();
-            defaultDesignation = designationRepository.save(defaultDesignation);
-            log.info("Initialized default designation");
-        } else {
-            defaultDesignation = designationRepository.findAll().get(0);
+            adminDesig = designationRepository.save(adminDesig);
         }
 
-        // 4. Initialize or reset default user 727724eucj015@skcet.ac.in
-        String targetEmail = "727724eucj015@skcet.ac.in";
-        String targetUsername = "727724eucj015";
-
-        User existingUser = userRepository.findByEmail(targetEmail)
-                .orElseGet(() -> userRepository.findByUsername(targetUsername).orElse(null));
-
-        if (existingUser == null) {
-            User defaultUser = User.builder()
-                    .firstName("Hareesh")
-                    .lastName("User")
-                    .username(targetUsername)
-                    .email(targetEmail)
-                    .password(passwordEncoder.encode("admin123"))
-                    .gender(Gender.MALE)
-                    .status(UserStatus.ACTIVE)
-                    .role(adminRole)
-                    .department(defaultDepartment)
-                    .designation(defaultDesignation)
+        Designation hrDesig = designationRepository.findByDesignationName("HR Manager").orElse(null);
+        if (hrDesig == null) {
+            hrDesig = Designation.builder()
+                    .designationName("HR Manager")
+                    .description("HR Lead")
                     .build();
-            userRepository.save(defaultUser);
-            log.info("Initialized default user: {} with password: admin123", targetEmail);
-        } else {
-            existingUser.setPassword(passwordEncoder.encode("admin123"));
-            existingUser.setRole(adminRole);
-            userRepository.save(existingUser);
-            log.info("Reset password for user: {} to admin123", targetEmail);
+            hrDesig = designationRepository.save(hrDesig);
         }
 
-        // Also ensure fallback 'admin' account exists and has password 'admin123'
-        User adminUser = userRepository.findByUsername("admin").orElse(null);
-        if (adminUser == null) {
-            adminUser = User.builder()
-                    .firstName("System")
-                    .lastName("Admin")
-                    .username("admin")
-                    .email("admin@attendance.com")
-                    .password(passwordEncoder.encode("admin123"))
-                    .gender(Gender.MALE)
-                    .status(UserStatus.ACTIVE)
-                    .role(adminRole)
-                    .department(defaultDepartment)
-                    .designation(defaultDesignation)
+        Designation mgrDesig = designationRepository.findByDesignationName("Engineering Manager").orElse(null);
+        if (mgrDesig == null) {
+            mgrDesig = Designation.builder()
+                    .designationName("Engineering Manager")
+                    .description("Team Manager")
                     .build();
-            userRepository.save(adminUser);
-            log.info("Initialized fallback admin account: username 'admin', password 'admin123'");
-        } else {
-            adminUser.setPassword(passwordEncoder.encode("admin123"));
-            userRepository.save(adminUser);
-            log.info("Reset password for admin user to admin123");
+            mgrDesig = designationRepository.save(mgrDesig);
         }
+
+        Designation empDesig = designationRepository.findByDesignationName("Software Engineer").orElse(null);
+        if (empDesig == null) {
+            empDesig = Designation.builder()
+                    .designationName("Software Engineer")
+                    .description("Software Developer")
+                    .build();
+            empDesig = designationRepository.save(empDesig);
+        }
+
+        // 4. Seed or synchronize development accounts
+        syncSeedUser(adminUsername, adminEmail, adminPassword, "System", "Admin", RoleName.ADMIN, hrDept, adminDesig);
+        syncSeedUser(hrUsername, hrEmail, hrPassword, "HR", "Lead", RoleName.HR, hrDept, hrDesig);
+        syncSeedUser(managerUsername, managerEmail, managerPassword, "Team", "Manager", RoleName.MANAGER, engineeringDept, mgrDesig);
+        syncSeedUser(employeeUsername, employeeEmail, employeePassword, "John", "Doe", RoleName.EMPLOYEE, engineeringDept, empDesig);
+    }
+
+    private void syncSeedUser(String username, String email, String password, String firstName, String lastName,
+                              RoleName roleName, Department department, Designation designation) {
+
+        User existingUser = userRepository.findByUsername(username)
+                .orElseGet(() -> userRepository.findByEmail(email).orElse(null));
+
+        Role role = roleRepository.findByRoleName(roleName)
+                .orElseThrow(() -> new RuntimeException("Role not found: " + roleName));
+
+        if (existingUser != null) {
+            boolean updated = false;
+            if (existingUser.getStatus() != UserStatus.ACTIVE) {
+                existingUser.setStatus(UserStatus.ACTIVE);
+                updated = true;
+            }
+            if (existingUser.getRole() == null || existingUser.getRole().getRoleName() != roleName) {
+                existingUser.setRole(role);
+                updated = true;
+            }
+            if (syncDevPasswords && !passwordEncoder.matches(password, existingUser.getPassword())) {
+                existingUser.setPassword(passwordEncoder.encode(password));
+                updated = true;
+                log.info("Synchronized password for dev user '{}' to match configured default.", username);
+            }
+            if (updated) {
+                userRepository.save(existingUser);
+            }
+            log.info("Dev account '{}' is verified active with role {}", username, roleName);
+            return;
+        }
+
+        User user = User.builder()
+                .firstName(firstName)
+                .lastName(lastName)
+                .username(username)
+                .email(email)
+                .password(passwordEncoder.encode(password))
+                .gender(Gender.MALE)
+                .status(UserStatus.ACTIVE)
+                .role(role)
+                .department(department)
+                .designation(designation)
+                .build();
+
+        userRepository.save(user);
+        log.info("Successfully bootstrapped seed account: {} ({})", username, roleName);
     }
 }

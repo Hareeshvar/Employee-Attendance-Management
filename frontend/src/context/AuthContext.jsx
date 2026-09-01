@@ -5,10 +5,27 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token') || null);
-  const [username, setUsername] = useState(localStorage.getItem('username') || null);
-  const [role, setRole] = useState(localStorage.getItem('role') || null);
-  const [userId, setUserId] = useState(localStorage.getItem('userId') || null);
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Restore authenticated session from backend on app startup
+  useEffect(() => {
+    const initAuth = async () => {
+      const storedToken = localStorage.getItem('token');
+      if (storedToken) {
+        try {
+          const userData = await authService.getCurrentUser();
+          setUser(userData);
+          setToken(storedToken);
+        } catch (err) {
+          // Token invalid or user inactive -> clear state
+          logout();
+        }
+      }
+      setLoading(false);
+    };
+    initAuth();
+  }, []);
 
   const login = async (usernameInput, passwordInput) => {
     setLoading(true);
@@ -19,17 +36,10 @@ export const AuthProvider = ({ children }) => {
       });
 
       const authToken = data.token;
-      const authUser = data.username;
-      const authRole = data.role; // e.g. "ROLE_ADMIN" or "ROLE_EMPLOYEE"
-
       localStorage.setItem('token', authToken);
-      localStorage.setItem('username', authUser);
-      localStorage.setItem('role', authRole);
 
       setToken(authToken);
-      setUsername(authUser);
-      setRole(authRole);
-
+      setUser(data);
       return data;
     } finally {
       setLoading(false);
@@ -43,34 +53,59 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('userId');
 
     setToken(null);
-    setUsername(null);
-    setRole(null);
-    setUserId(null);
+    setUser(null);
   };
 
-  const saveUserId = (id) => {
-    localStorage.setItem('userId', id);
-    setUserId(id);
+  const refreshUser = async () => {
+    if (token) {
+      try {
+        const userData = await authService.getCurrentUser();
+        setUser(userData);
+      } catch (err) {
+        logout();
+      }
+    }
   };
 
-  const cleanRole = role ? role.replace('ROLE_', '').toUpperCase() : '';
+  const cleanRole = user?.role ? user.role.replace('ROLE_', '').toUpperCase() : '';
+  const permissions = user?.permissions || [];
+
   const isAdmin = cleanRole === 'ADMIN';
-  const isEmployee = cleanRole === 'EMPLOYEE' || cleanRole === 'USER';
+  const isHr = cleanRole === 'HR';
+  const isManager = cleanRole === 'MANAGER';
+  const isEmployee = cleanRole === 'EMPLOYEE';
+
+  const hasPermission = (permission) => permissions.includes(permission);
+  const hasRole = (roles) => {
+    if (!Array.isArray(roles)) roles = [roles];
+    return roles.includes(cleanRole);
+  };
 
   return (
     <AuthContext.Provider
       value={{
         token,
-        username,
+        user,
+        userId: user?.userId || null,
+        username: user?.username || null,
+        email: user?.email || null,
+        firstName: user?.firstName || null,
+        lastName: user?.lastName || null,
         role: cleanRole,
-        rawRole: role,
-        userId,
-        saveUserId,
-        isAuthenticated: !!token,
+        departmentId: user?.departmentId || null,
+        departmentName: user?.departmentName || null,
+        designationName: user?.designationName || null,
+        permissions,
+        isAuthenticated: !!token && !!user,
         isAdmin,
+        isHr,
+        isManager,
         isEmployee,
+        hasPermission,
+        hasRole,
         login,
         logout,
+        refreshUser,
         loading,
       }}
     >

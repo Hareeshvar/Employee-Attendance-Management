@@ -29,3 +29,5 @@ export const ErrorState = ({ title = 'Failed to load data', message, onRetry }) 
     )}
   </div>
 );
+
+export default LoadingSpinner;

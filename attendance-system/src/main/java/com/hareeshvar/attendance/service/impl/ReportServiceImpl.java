@@ -2,20 +2,25 @@ package com.hareeshvar.attendance.service.impl;
 
 import java.util.List;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.hareeshvar.attendance.dto.request.ReportRequestDTO;
 import com.hareeshvar.attendance.dto.response.ReportResponseDTO;
 import com.hareeshvar.attendance.entity.Report;
+import com.hareeshvar.attendance.enums.RoleName;
 import com.hareeshvar.attendance.exception.ResourceNotFoundException;
 import com.hareeshvar.attendance.mapper.ReportMapper;
 import com.hareeshvar.attendance.repository.ReportRepository;
+import com.hareeshvar.attendance.security.service.CustomUserDetails;
 import com.hareeshvar.attendance.service.ReportService;
 
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class ReportServiceImpl implements ReportService {
 
     private final ReportRepository reportRepository;
@@ -23,44 +28,66 @@ public class ReportServiceImpl implements ReportService {
 
     @Override
     public ReportResponseDTO createReport(ReportRequestDTO request) {
-
         Report report = reportMapper.toEntity(request);
         if (request.getGeneratedDate() != null) {
             report.setGeneratedDate(request.getGeneratedDate());
         }
-
         Report savedReport = reportRepository.save(report);
-
         return reportMapper.toResponse(savedReport);
     }
 
     @Override
-    public List<ReportResponseDTO> getAllReports() {
+    @Transactional(readOnly = true)
+    public List<ReportResponseDTO> getAllReports(CustomUserDetails userDetails) {
+        if (userDetails == null) {
+            throw new AccessDeniedException("Authentication required");
+        }
 
-        return reportRepository.findAll()
-                .stream()
+        RoleName role = userDetails.getRole();
+        List<Report> reports = reportRepository.findAll();
+
+        if (role == RoleName.ADMIN) {
+            return reports.stream().map(reportMapper::toResponse).toList();
+        }
+
+        if (role == RoleName.HR) {
+            return reports.stream()
+                    .filter(r -> r.getReportType() == null || !r.getReportType().equalsIgnoreCase("SYSTEM"))
+                    .map(reportMapper::toResponse)
+                    .toList();
+        }
+
+        if (role == RoleName.MANAGER) {
+            return reports.stream()
+                    .filter(r -> r.getReportType() != null && r.getReportType().equalsIgnoreCase("TEAM"))
+                    .map(reportMapper::toResponse)
+                    .toList();
+        }
+
+        // EMPLOYEE scope
+        return reports.stream()
+                .filter(r -> r.getReportType() != null && r.getReportType().equalsIgnoreCase("PERSONAL"))
                 .map(reportMapper::toResponse)
                 .toList();
     }
 
     @Override
-    public ReportResponseDTO getReportById(Long reportId) {
-
+    @Transactional(readOnly = true)
+    public ReportResponseDTO getReportById(Long reportId, CustomUserDetails userDetails) {
         Report report = reportRepository.findById(reportId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Report not found with id : " + reportId));
+                .orElseThrow(() -> new ResourceNotFoundException("Report", "id", reportId));
+
+        if (userDetails == null) {
+            throw new AccessDeniedException("Authentication required");
+        }
 
         return reportMapper.toResponse(report);
     }
 
     @Override
     public ReportResponseDTO updateReport(Long reportId, ReportRequestDTO request) {
-
         Report report = reportRepository.findById(reportId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Report not found with id : " + reportId));
+                .orElseThrow(() -> new ResourceNotFoundException("Report", "id", reportId));
 
         report.setReportName(request.getReportName());
         report.setReportType(request.getReportType());
@@ -71,18 +98,13 @@ public class ReportServiceImpl implements ReportService {
         report.setDescription(request.getDescription());
 
         Report updatedReport = reportRepository.save(report);
-
         return reportMapper.toResponse(updatedReport);
     }
 
     @Override
     public void deleteReport(Long reportId) {
-
         Report report = reportRepository.findById(reportId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Report not found with id : " + reportId));
-
+                .orElseThrow(() -> new ResourceNotFoundException("Report", "id", reportId));
         reportRepository.delete(report);
     }
 }

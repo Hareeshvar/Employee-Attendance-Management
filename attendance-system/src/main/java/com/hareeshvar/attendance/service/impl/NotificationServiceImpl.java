@@ -2,22 +2,27 @@ package com.hareeshvar.attendance.service.impl;
 
 import java.util.List;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.hareeshvar.attendance.dto.request.NotificationRequestDTO;
 import com.hareeshvar.attendance.dto.response.NotificationResponseDTO;
 import com.hareeshvar.attendance.entity.Notification;
 import com.hareeshvar.attendance.entity.User;
+import com.hareeshvar.attendance.enums.RoleName;
 import com.hareeshvar.attendance.exception.ResourceNotFoundException;
 import com.hareeshvar.attendance.mapper.NotificationMapper;
 import com.hareeshvar.attendance.repository.NotificationRepository;
 import com.hareeshvar.attendance.repository.UserRepository;
+import com.hareeshvar.attendance.security.service.CustomUserDetails;
 import com.hareeshvar.attendance.service.NotificationService;
 
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
@@ -26,74 +31,87 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public NotificationResponseDTO createNotification(NotificationRequestDTO request) {
-
         User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "User not found with id : " + request.getUserId()));
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", request.getUserId()));
 
         Notification notification = notificationMapper.toEntity(request);
         notification.setUser(user);
 
         Notification savedNotification = notificationRepository.save(notification);
-
         return notificationMapper.toResponse(savedNotification);
     }
 
     @Override
-    public List<NotificationResponseDTO> getAllNotifications() {
+    @Transactional(readOnly = true)
+    public List<NotificationResponseDTO> getAllNotifications(CustomUserDetails userDetails) {
+        if (userDetails == null) {
+            throw new AccessDeniedException("Authentication required");
+        }
 
-        return notificationRepository.findAll()
-                .stream()
-                .map(notificationMapper::toResponse)
-                .toList();
+        RoleName role = userDetails.getRole();
+        if (role == RoleName.ADMIN || role == RoleName.HR) {
+            return notificationRepository.findAll().stream().map(notificationMapper::toResponse).toList();
+        }
+
+        return notificationRepository.findByUserUserId(userDetails.getUserId())
+                .stream().map(notificationMapper::toResponse).toList();
     }
 
     @Override
-    public NotificationResponseDTO getNotificationById(Long notificationId) {
-
+    @Transactional(readOnly = true)
+    public NotificationResponseDTO getNotificationById(Long notificationId, CustomUserDetails userDetails) {
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Notification not found with id : " + notificationId));
+                .orElseThrow(() -> new ResourceNotFoundException("Notification", "id", notificationId));
+
+        if (userDetails == null) {
+            throw new AccessDeniedException("Authentication required");
+        }
+
+        RoleName role = userDetails.getRole();
+        if (role == RoleName.ADMIN || role == RoleName.HR) {
+            return notificationMapper.toResponse(notification);
+        }
+
+        if (!notification.getUser().getUserId().equals(userDetails.getUserId())) {
+            throw new AccessDeniedException("Access denied: You can only view your own notifications");
+        }
 
         return notificationMapper.toResponse(notification);
     }
 
     @Override
-    public NotificationResponseDTO updateNotification(Long notificationId,
-                                                      NotificationRequestDTO request) {
-
+    public NotificationResponseDTO updateNotification(Long notificationId, NotificationRequestDTO request, CustomUserDetails userDetails) {
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Notification not found with id : " + notificationId));
+                .orElseThrow(() -> new ResourceNotFoundException("Notification", "id", notificationId));
 
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "User not found with id : " + request.getUserId()));
+        if (userDetails == null) {
+            throw new AccessDeniedException("Authentication required");
+        }
 
-        notification.setUser(user);
-        notification.setTitle(request.getTitle());
-        notification.setMessage(request.getMessage());
+        // Allow user to mark their own notification read
+        if (userDetails.getRole() != RoleName.ADMIN && userDetails.getRole() != RoleName.HR) {
+            if (!notification.getUser().getUserId().equals(userDetails.getUserId())) {
+                throw new AccessDeniedException("Access denied: You can only update your own notifications");
+            }
+        }
+
         if (request.getIsRead() != null) {
             notification.setIsRead(request.getIsRead());
         }
 
-        Notification updatedNotification = notificationRepository.save(notification);
+        if (userDetails.getRole() == RoleName.ADMIN || userDetails.getRole() == RoleName.HR) {
+            if (request.getTitle() != null) notification.setTitle(request.getTitle());
+            if (request.getMessage() != null) notification.setMessage(request.getMessage());
+        }
 
+        Notification updatedNotification = notificationRepository.save(notification);
         return notificationMapper.toResponse(updatedNotification);
     }
 
     @Override
     public void deleteNotification(Long notificationId) {
-
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Notification not found with id : " + notificationId));
-
+                .orElseThrow(() -> new ResourceNotFoundException("Notification", "id", notificationId));
         notificationRepository.delete(notification);
     }
 }

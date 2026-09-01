@@ -4,17 +4,17 @@ import java.util.List;
 
 import com.hareeshvar.attendance.dto.request.UserRequestDTO;
 import com.hareeshvar.attendance.dto.response.UserResponseDTO;
+import com.hareeshvar.attendance.security.service.CustomUserDetails;
 
 public interface UserService {
 
-    UserResponseDTO createUser(UserRequestDTO request);
+    UserResponseDTO createUser(UserRequestDTO request, CustomUserDetails creator);
 
-    List<UserResponseDTO> getAllUsers();
+    List<UserResponseDTO> getAllUsers(CustomUserDetails userDetails);
 
-    UserResponseDTO getUserById(Long userId);
+    UserResponseDTO getUserById(Long userId, CustomUserDetails userDetails);
 
-    UserResponseDTO updateUser(Long userId, UserRequestDTO request);
+    UserResponseDTO updateUser(Long userId, UserRequestDTO request, CustomUserDetails updater);
 
-    void deleteUser(Long userId);
-
+    void deleteUser(Long userId, CustomUserDetails deleter);
 }

@@ -22,11 +22,13 @@ export const attendanceService = {
     return response.data;
   },
   checkIn: async (userId) => {
-    const response = await api.post(`/attendance/checkin/${userId}`);
+    const url = (userId && userId !== 'null') ? `/attendance/checkin/${userId}` : '/attendance/checkin';
+    const response = await api.post(url);
     return response.data;
   },
   checkOut: async (userId) => {
-    const response = await api.post(`/attendance/checkout/${userId}`);
+    const url = (userId && userId !== 'null') ? `/attendance/checkout/${userId}` : '/attendance/checkout';
+    const response = await api.post(url);
     return response.data;
   },
 };

@@ -17,6 +17,7 @@ import ShiftsPage from './pages/ShiftsPage';
 import PayrollsPage from './pages/PayrollsPage';
 import ReportsPage from './pages/ReportsPage';
 import RolesPage from './pages/RolesPage';
+import ProfilePage from './pages/ProfilePage';
 
 // Main Application Layout Shell
 const Layout = () => {
@@ -46,15 +47,28 @@ const App = () => {
               <Route path="/attendance" element={<AttendancePage />} />
               <Route path="/leaves" element={<LeavesPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
 
-              {/* Admin-only Protected Modules */}
-              <Route element={<ProtectedRoute adminOnly={true} />}>
+              {/* Roles & Permissions Protected Routes */}
+              <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'HR', 'MANAGER']} />}>
                 <Route path="/users" element={<UsersPage />} />
+              </Route>
+
+              <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'HR']} />}>
                 <Route path="/departments" element={<DepartmentsPage />} />
                 <Route path="/designations" element={<DesignationsPage />} />
                 <Route path="/shifts" element={<ShiftsPage />} />
+              </Route>
+
+              <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'HR', 'EMPLOYEE']} />}>
                 <Route path="/payrolls" element={<PayrollsPage />} />
+              </Route>
+
+              <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'HR', 'MANAGER', 'EMPLOYEE']} />}>
                 <Route path="/reports" element={<ReportsPage />} />
+              </Route>
+
+              <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
                 <Route path="/roles" element={<RolesPage />} />
               </Route>
 

@@ -4,17 +4,17 @@ import java.util.List;
 
 import com.hareeshvar.attendance.dto.request.NotificationRequestDTO;
 import com.hareeshvar.attendance.dto.response.NotificationResponseDTO;
+import com.hareeshvar.attendance.security.service.CustomUserDetails;
 
 public interface NotificationService {
 
     NotificationResponseDTO createNotification(NotificationRequestDTO request);
 
-    List<NotificationResponseDTO> getAllNotifications();
+    List<NotificationResponseDTO> getAllNotifications(CustomUserDetails userDetails);
 
-    NotificationResponseDTO getNotificationById(Long notificationId);
+    NotificationResponseDTO getNotificationById(Long notificationId, CustomUserDetails userDetails);
 
-    NotificationResponseDTO updateNotification(Long notificationId, NotificationRequestDTO request);
+    NotificationResponseDTO updateNotification(Long notificationId, NotificationRequestDTO request, CustomUserDetails userDetails);
 
     void deleteNotification(Long notificationId);
-
 }

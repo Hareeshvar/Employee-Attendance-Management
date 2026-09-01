@@ -23,7 +23,6 @@ import lombok.RequiredArgsConstructor;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
-
     private final UserDetailsService userDetailsService;
 
     @Override
@@ -42,29 +41,33 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String jwt = authHeader.substring(7);
 
-        String username = jwtService.extractUsername(jwt);
+        try {
+            String username = jwtService.extractUsername(jwt);
 
-        if (username != null &&
-                SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (username != null &&
+                    SecurityContextHolder.getContext().getAuthentication() == null) {
 
-            UserDetails userDetails =
-                    userDetailsService.loadUserByUsername(username);
+                // Re-load fresh user details & status from database
+                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-            if (jwtService.isTokenValid(jwt, userDetails.getUsername())) {
+                if (jwtService.isTokenValid(jwt, userDetails.getUsername()) && userDetails.isEnabled()) {
 
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails,
-                                null,
-                                userDetails.getAuthorities());
+                    UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(
+                                    userDetails,
+                                    null,
+                                    userDetails.getAuthorities());
 
-                authToken.setDetails(
-                        new WebAuthenticationDetailsSource()
-                                .buildDetails(request));
+                    authToken.setDetails(
+                            new WebAuthenticationDetailsSource()
+                                    .buildDetails(request));
 
-                SecurityContextHolder.getContext()
-                        .setAuthentication(authToken);
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
             }
+        } catch (Exception e) {
+            // Token invalid, expired, or user inactive -> SecurityContext remain unauthenticated
+            SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);
