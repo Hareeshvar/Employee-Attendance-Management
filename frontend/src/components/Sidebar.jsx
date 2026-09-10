@@ -17,13 +17,14 @@ import {
 import { useAuth } from '../context/AuthContext';
 
 const Sidebar = () => {
-  const { role } = useAuth();
+  const { role, firstName, lastName, username } = useAuth();
+  const displayName = firstName ? `${firstName} ${lastName || ''}`.trim() : (username || 'User');
 
   const getNavItems = () => {
     switch (role) {
       case 'ADMIN':
         return [
-          { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+          { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
           { name: 'Users', path: '/users', icon: Users },
           { name: 'Departments', path: '/departments', icon: Building2 },
           { name: 'Designations', path: '/designations', icon: Briefcase },
@@ -38,7 +39,7 @@ const Sidebar = () => {
 
       case 'HR':
         return [
-          { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+          { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
           { name: 'Employees', path: '/users', icon: Users },
           { name: 'Departments', path: '/departments', icon: Building2 },
           { name: 'Designations', path: '/designations', icon: Briefcase },
@@ -52,7 +53,7 @@ const Sidebar = () => {
 
       case 'MANAGER':
         return [
-          { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+          { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
           { name: 'Team Members', path: '/users', icon: Users },
           { name: 'Team Attendance', path: '/attendance', icon: Clock },
           { name: 'Team Leaves', path: '/leaves', icon: CalendarDays },
@@ -63,7 +64,7 @@ const Sidebar = () => {
       case 'EMPLOYEE':
       default:
         return [
-          { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+          { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
           { name: 'My Attendance', path: '/attendance', icon: Clock },
           { name: 'My Leaves', path: '/leaves', icon: CalendarDays },
           { name: 'My Payroll', path: '/payrolls', icon: DollarSign },
@@ -100,6 +101,54 @@ const Sidebar = () => {
           );
         })}
       </nav>
+
+      {/* User Profile Widget Footer */}
+      <div
+        style={{
+          padding: '1rem',
+          borderTop: '1px solid var(--border-color)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+        }}
+      >
+        <div
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: '50%',
+            background: 'var(--primary-gradient)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 800,
+            fontSize: '0.9rem',
+            color: '#fff',
+            flexShrink: 0,
+            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+          }}
+        >
+          {displayName.charAt(0).toUpperCase()}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <span
+            style={{
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {displayName}
+          </span>
+          <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+            {role || 'EMPLOYEE'}
+          </span>
+        </div>
+      </div>
     </aside>
   );
 };

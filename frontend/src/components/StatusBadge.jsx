@@ -17,7 +17,16 @@ const StatusBadge = ({ status }) => {
 
   return (
     <span className={`badge ${className}`}>
-      {status}
+      <span
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          background: 'currentColor',
+          display: 'inline-block',
+        }}
+      ></span>
+      <span>{status}</span>
     </span>
   );
 };

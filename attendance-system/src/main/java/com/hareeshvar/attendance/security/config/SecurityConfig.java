@@ -48,8 +48,14 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(exception ->
-                        exception.authenticationEntryPoint(authenticationEntryPoint))
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.getWriter().write("{\"status\":403,\"error\":\"Forbidden\",\"message\":\"Access Denied: You do not have permission to access this resource\"}");
+                        })
+                )
                 .authorizeHttpRequests(auth -> auth
 
                         // =========================
@@ -67,66 +73,67 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/me", "/api/v1/auth/change-password").authenticated()
 
                         // =========================
-                        // USER MANAGEMENT (ADMIN, HR)
+                        // USER MANAGEMENT (ADMIN, HR, MANAGER)
                         // =========================
-                        .requestMatchers(HttpMethod.POST, "/api/v1/users").hasAnyRole("ADMIN", "HR")
-                        .requestMatchers(HttpMethod.PUT, "/api/v1/users/**").hasAnyRole("ADMIN", "HR")
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/users/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/v1/users/**").hasAnyRole("ADMIN", "HR", "MANAGER")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/users", "/api/v1/users/**").hasAnyRole("ADMIN", "HR")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/users", "/api/v1/users/**").hasAnyRole("ADMIN", "HR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/users", "/api/v1/users/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/users", "/api/v1/users/**").hasAnyRole("ADMIN", "HR", "MANAGER")
 
                         // =========================
-                        // ROLE MANAGEMENT (ADMIN ONLY)
+                        // ROLE MANAGEMENT
                         // =========================
-                        .requestMatchers("/api/v1/roles/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/roles", "/api/v1/roles/**").hasAnyRole("ADMIN", "HR", "MANAGER")
+                        .requestMatchers("/api/v1/roles", "/api/v1/roles/**").hasRole("ADMIN")
 
                         // =========================
                         // DEPARTMENT & DESIGNATION MANAGEMENT
                         // =========================
-                        .requestMatchers(HttpMethod.POST, "/api/v1/departments/**", "/api/v1/designations/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/v1/departments/**", "/api/v1/designations/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/departments/**", "/api/v1/designations/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/v1/departments/**", "/api/v1/designations/**").hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/departments", "/api/v1/departments/**", "/api/v1/designations", "/api/v1/designations/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/departments", "/api/v1/departments/**", "/api/v1/designations", "/api/v1/designations/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/departments", "/api/v1/departments/**", "/api/v1/designations", "/api/v1/designations/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/departments", "/api/v1/departments/**", "/api/v1/designations", "/api/v1/designations/**").hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")
 
                         // =========================
                         // SHIFTS & EMPLOYEE SHIFTS
                         // =========================
-                        .requestMatchers(HttpMethod.POST, "/api/v1/shifts/**", "/api/v1/employee-shifts/**").hasAnyRole("ADMIN", "HR")
-                        .requestMatchers(HttpMethod.PUT, "/api/v1/shifts/**", "/api/v1/employee-shifts/**").hasAnyRole("ADMIN", "HR")
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/shifts/**", "/api/v1/employee-shifts/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/v1/shifts/**", "/api/v1/employee-shifts/**").hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/shifts", "/api/v1/shifts/**", "/api/v1/employee-shifts", "/api/v1/employee-shifts/**").hasAnyRole("ADMIN", "HR")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/shifts", "/api/v1/shifts/**", "/api/v1/employee-shifts", "/api/v1/employee-shifts/**").hasAnyRole("ADMIN", "HR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/shifts", "/api/v1/shifts/**", "/api/v1/employee-shifts", "/api/v1/employee-shifts/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/shifts", "/api/v1/shifts/**", "/api/v1/employee-shifts", "/api/v1/employee-shifts/**").hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")
 
                         // =========================
                         // LEAVES
                         // =========================
                         .requestMatchers(HttpMethod.PUT, "/api/v1/leaves/*/approve", "/api/v1/leaves/*/reject").hasAnyRole("ADMIN", "HR", "MANAGER")
-                        .requestMatchers(HttpMethod.POST, "/api/v1/leaves").hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")
-                        .requestMatchers(HttpMethod.GET, "/api/v1/leaves/**").hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/leaves/**").hasAnyRole("ADMIN", "HR", "EMPLOYEE")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/leaves", "/api/v1/leaves/**").hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/leaves", "/api/v1/leaves/**").hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/leaves", "/api/v1/leaves/**").hasAnyRole("ADMIN", "HR", "EMPLOYEE")
 
                         // =========================
                         // ATTENDANCE
                         // =========================
-                        .requestMatchers("/api/v1/attendance/**").hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")
+                        .requestMatchers("/api/v1/attendance", "/api/v1/attendance/**").hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")
 
                         // =========================
                         // PAYROLL
                         // =========================
-                        .requestMatchers(HttpMethod.POST, "/api/v1/payrolls/**", "/api/v1/payrolls").hasAnyRole("ADMIN", "HR")
-                        .requestMatchers(HttpMethod.PUT, "/api/v1/payrolls/**").hasAnyRole("ADMIN", "HR")
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/payrolls/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/v1/payrolls/**").hasAnyRole("ADMIN", "HR", "EMPLOYEE")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/payrolls", "/api/v1/payrolls/**").hasAnyRole("ADMIN", "HR")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/payrolls", "/api/v1/payrolls/**").hasAnyRole("ADMIN", "HR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/payrolls", "/api/v1/payrolls/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/payrolls", "/api/v1/payrolls/**").hasAnyRole("ADMIN", "HR", "EMPLOYEE")
 
                         // =========================
                         // REPORTS
                         // =========================
-                        .requestMatchers("/api/v1/reports/**").hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")
+                        .requestMatchers("/api/v1/reports", "/api/v1/reports/**").hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")
 
                         // =========================
                         // NOTIFICATIONS
                         // =========================
-                        .requestMatchers(HttpMethod.POST, "/api/v1/notifications/**").hasAnyRole("ADMIN", "HR")
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/notifications/**").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/notifications/**").hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/notifications", "/api/v1/notifications/**").hasAnyRole("ADMIN", "HR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/notifications", "/api/v1/notifications/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/notifications", "/api/v1/notifications/**").hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")
 
                         // =========================
                         // EVERYTHING ELSE

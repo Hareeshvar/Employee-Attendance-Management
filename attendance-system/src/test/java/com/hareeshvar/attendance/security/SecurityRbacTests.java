@@ -147,9 +147,19 @@ public class SecurityRbacTests {
     }
 
     @Test
-    @DisplayName("HR role cannot access /api/v1/roles (Forbidden 403)")
-    void testHrDeniedRoleManagement() throws Exception {
+    @DisplayName("HR role can read /api/v1/roles (200 OK)")
+    void testHrCanReadRoles() throws Exception {
         mockMvc.perform(get("/api/v1/roles")
+                        .header("Authorization", "Bearer " + hrToken))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("HR role cannot create /api/v1/roles (Forbidden 403)")
+    void testHrDeniedRoleManagement() throws Exception {
+        mockMvc.perform(post("/api/v1/roles")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roleName\":\"NEW_ROLE\"}")
                         .header("Authorization", "Bearer " + hrToken))
                 .andExpect(status().isForbidden());
     }

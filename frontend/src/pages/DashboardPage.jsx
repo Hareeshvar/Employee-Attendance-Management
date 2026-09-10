@@ -22,6 +22,7 @@ import { LoadingSpinner, ErrorState } from '../components/LoadingSpinner';
 import StatusBadge from '../components/StatusBadge';
 import Toast from '../components/Toast';
 import { formatDate, formatTime, getErrorMessage } from '../utils/formatters';
+import AttendanceAnalytics from '../components/analytics/AttendanceAnalytics';
 
 const DashboardPage = () => {
   const { username, firstName, role, isAdmin, isHr, isManager, isEmployee, userId } = useAuth();
@@ -140,24 +141,43 @@ const DashboardPage = () => {
         className="card"
         style={{
           marginBottom: '2rem',
-          background: 'linear-gradient(135deg, rgba(35, 45, 66, 0.9), rgba(19, 25, 38, 0.9))',
-          border: '1px solid rgba(59, 130, 246, 0.2)',
+          background: 'linear-gradient(135deg, rgba(26, 36, 56, 0.85) 0%, rgba(15, 21, 35, 0.9) 100%)',
+          border: '1px solid var(--border-highlight)',
+          borderRadius: 'var(--radius-xl)',
+          padding: '1.75rem 2rem',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: '1.5rem',
+          boxShadow: 'var(--shadow-md)',
         }}
       >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-            <Clock style={{ color: 'var(--primary)' }} size={22} />
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Attendance Punch Station</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.35rem' }}>
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: 'var(--radius-md)',
+                background: 'rgba(59, 130, 246, 0.15)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--primary)',
+              }}
+            >
+              <Clock size={20} />
+            </div>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+              Attendance Punch Station
+            </h3>
           </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginLeft: '3.1rem' }}>
             {(isAdmin || isHr)
-              ? 'Log your attendance or manage check-in/out for employees.'
-              : 'Record your daily check-in or check-out time.'}
+              ? 'Log your personal attendance or manage check-in/out for registered staff.'
+              : 'Record your daily check-in or check-out timestamp.'}
           </p>
         </div>
 
@@ -165,7 +185,7 @@ const DashboardPage = () => {
           {(isAdmin || isHr) && users.length > 0 && (
             <select
               className="form-select"
-              style={{ width: '220px' }}
+              style={{ width: '230px', borderRadius: 'var(--radius-md)' }}
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(e.target.value)}
             >
@@ -180,6 +200,7 @@ const DashboardPage = () => {
 
           <button
             className="btn btn-success"
+            style={{ borderRadius: 'var(--radius-md)', padding: '0.7rem 1.4rem' }}
             onClick={handleSelfCheckIn}
             disabled={actionLoading}
           >
@@ -189,6 +210,7 @@ const DashboardPage = () => {
 
           <button
             className="btn btn-danger"
+            style={{ borderRadius: 'var(--radius-md)', padding: '0.7rem 1.4rem' }}
             onClick={handleSelfCheckOut}
             disabled={actionLoading}
           >
@@ -203,7 +225,7 @@ const DashboardPage = () => {
         {(isAdmin || isHr) && (
           <div className="card stat-card">
             <div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Total Employees</div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Total Employees</div>
               <div className="stat-value" style={{ color: 'var(--primary)' }}>{users.length}</div>
             </div>
             <div className="stat-icon"><Users size={26} /></div>
@@ -213,7 +235,7 @@ const DashboardPage = () => {
         {isManager && (
           <div className="card stat-card">
             <div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Team Members</div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Team Members</div>
               <div className="stat-value" style={{ color: 'var(--primary)' }}>{users.length}</div>
             </div>
             <div className="stat-icon"><Users size={26} /></div>
@@ -222,28 +244,28 @@ const DashboardPage = () => {
 
         <div className="card stat-card">
           <div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
               {isEmployee ? 'Today Status' : 'Present Today'}
             </div>
             <div className="stat-value" style={{ color: '#34d399' }}>
               {isEmployee ? (userTodayAttendance ? userTodayAttendance.status : 'NOT CHECKED IN') : todayPresent}
             </div>
           </div>
-          <div className="stat-icon" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#34d399' }}>
+          <div className="stat-icon" style={{ background: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.3)', color: '#34d399' }}>
             <CheckCircle2 size={26} />
           </div>
         </div>
 
         <div className="card stat-card">
           <div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
               {isEmployee ? 'My Leaves' : 'Pending Leaves'}
             </div>
             <div className="stat-value" style={{ color: '#fbbf24' }}>
               {isEmployee ? leaves.length : pendingLeaves}
             </div>
           </div>
-          <div className="stat-icon" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#fbbf24' }}>
+          <div className="stat-icon" style={{ background: 'rgba(245, 158, 11, 0.12)', borderColor: 'rgba(245, 158, 11, 0.3)', color: '#fbbf24' }}>
             <CalendarDays size={26} />
           </div>
         </div>
@@ -251,29 +273,51 @@ const DashboardPage = () => {
         {(isAdmin || isHr) && (
           <div className="card stat-card">
             <div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Departments</div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Departments</div>
               <div className="stat-value" style={{ color: '#a855f7' }}>{departments.length}</div>
             </div>
-            <div className="stat-icon" style={{ background: 'rgba(168, 85, 247, 0.12)', color: '#a855f7' }}>
+            <div className="stat-icon" style={{ background: 'rgba(168, 85, 247, 0.12)', borderColor: 'rgba(168, 85, 247, 0.3)', color: '#a855f7' }}>
               <Building2 size={26} />
             </div>
           </div>
         )}
       </div>
 
+      {/* Graphical Attendance Analytics (RBAC-Aware) */}
+      <AttendanceAnalytics
+        records={attendances}
+        role={role}
+        loading={loading}
+        error={error}
+        onRetry={loadDashboardData}
+      />
+
       {/* Recent Attendance Activity Feed */}
       <div className="table-container" style={{ marginTop: '2rem' }}>
         <div className="table-header-bar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <TrendingUp size={20} style={{ color: 'var(--primary)' }} />
-            <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: 'var(--radius-sm)',
+                background: 'rgba(59, 130, 246, 0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--primary)',
+              }}
+            >
+              <TrendingUp size={18} />
+            </div>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>
               {isEmployee ? 'My Attendance History' : isManager ? 'Team Attendance Logs' : 'Recent Attendance Logs'}
             </h3>
           </div>
         </div>
 
         {attendances.length === 0 ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+          <div style={{ padding: '3rem 2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
             No attendance records found. Use the Punch Station above to log attendance.
           </div>
         ) : (
@@ -291,11 +335,11 @@ const DashboardPage = () => {
             <tbody>
               {attendances.slice(0, 7).map((item) => (
                 <tr key={item.attendanceId || item.id}>
-                  <td style={{ fontWeight: 600 }}>#{item.attendanceId || item.id}</td>
+                  <td style={{ fontWeight: 700, color: 'var(--primary)' }}>#{item.attendanceId || item.id}</td>
                   <td>{formatDate(item.attendanceDate)}</td>
                   <td>{formatTime(item.checkInTime)}</td>
                   <td>{formatTime(item.checkOutTime)}</td>
-                  <td>{item.workingHours ? `${item.workingHours} hrs` : '--'}</td>
+                  <td>{item.workingHours !== null && item.workingHours !== undefined ? `${item.workingHours} hrs` : '--'}</td>
                   <td>
                     <StatusBadge status={item.status} />
                   </td>

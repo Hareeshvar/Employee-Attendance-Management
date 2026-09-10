@@ -1,10 +1,11 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 
+import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import AttendancePage from './pages/AttendancePage';
@@ -19,7 +20,7 @@ import ReportsPage from './pages/ReportsPage';
 import RolesPage from './pages/RolesPage';
 import ProfilePage from './pages/ProfilePage';
 
-// Main Application Layout Shell
+// Main Application Layout Shell for Authenticated Workspace
 const Layout = () => {
   return (
     <div className="app-container">
@@ -32,18 +33,41 @@ const Layout = () => {
   );
 };
 
+// Root '/' Route Handler: Public Landing Page for Guests, Dashboard Redirect for Authenticated Users
+const IndexRoute = () => {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) return null;
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <LandingPage />;
+};
+
+// '/login' Route Handler: Login Form for Guests, Dashboard Redirect for Authenticated Users
+const LoginRoute = () => {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) return null;
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <LoginPage />;
+};
+
 const App = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* Public Route */}
-          <Route path="/login" element={<LoginPage />} />
+          {/* Public Landing & Login Routes */}
+          <Route path="/" element={<IndexRoute />} />
+          <Route path="/login" element={<LoginRoute />} />
 
-          {/* Protected Routes inside App Layout */}
+          {/* Authenticated Application Routes inside App Layout */}
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
-              <Route path="/" element={<DashboardPage />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/attendance" element={<AttendancePage />} />
               <Route path="/leaves" element={<LeavesPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
