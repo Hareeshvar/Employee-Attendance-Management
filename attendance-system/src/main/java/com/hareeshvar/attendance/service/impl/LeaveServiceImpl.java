@@ -37,6 +37,11 @@ public class LeaveServiceImpl implements LeaveService {
             throw new AccessDeniedException("Authentication required");
         }
 
+        if (request.getStartDate() != null && request.getEndDate() != null
+                && request.getStartDate().isAfter(request.getEndDate())) {
+            throw new BadRequestException("Start date cannot be after end date");
+        }
+
         Long targetUserId = request.getUserId();
         if (userDetails.getRole() != RoleName.ADMIN && userDetails.getRole() != RoleName.HR) {
             // Force user identity to authenticated principal to prevent IDOR
@@ -47,6 +52,10 @@ public class LeaveServiceImpl implements LeaveService {
             targetUserId = userDetails.getUserId();
         }
 
+        if (targetUserId == null) {
+            throw new BadRequestException("User ID is required to apply for leave");
+        }
+
         final Long userIdToUse = targetUserId;
         User user = userRepository.findById(userIdToUse)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userIdToUse));
@@ -54,6 +63,8 @@ public class LeaveServiceImpl implements LeaveService {
         Leave leave = leaveMapper.toEntity(request);
         leave.setUser(user);
         leave.setStatus(LeaveStatus.PENDING);
+        leave.calculateTotalDays();
+        leave.syncLeaveTypeId();
 
         Leave saved = leaveRepository.save(leave);
         return leaveMapper.toResponse(saved);

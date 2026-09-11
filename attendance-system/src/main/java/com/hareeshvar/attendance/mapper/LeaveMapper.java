@@ -13,6 +13,8 @@ public interface LeaveMapper {
     @Mapping(target = "leaveId", ignore = true)
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "status", ignore = true)
+    @Mapping(target = "totalDays", ignore = true)
+    @Mapping(target = "leaveTypeId", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     Leave toEntity(LeaveRequestDTO dto);

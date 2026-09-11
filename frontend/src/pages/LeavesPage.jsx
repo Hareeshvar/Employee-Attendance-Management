@@ -186,6 +186,7 @@ const LeavesPage = () => {
                 <th>Leave Type</th>
                 <th>Start Date</th>
                 <th>End Date</th>
+                <th>Duration</th>
                 <th>Reason</th>
                 <th>Status</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
@@ -196,6 +197,7 @@ const LeavesPage = () => {
                 const id = item.leaveId || item.id;
                 const status = item.status || item.leaveStatus || 'PENDING';
                 const isPending = String(status).toUpperCase() === 'PENDING';
+                const days = item.totalDays || (item.startDate && item.endDate ? (Math.max(Math.ceil((new Date(item.endDate) - new Date(item.startDate)) / (1000 * 60 * 60 * 24)) + 1, 1)) : 1);
 
                 return (
                   <tr key={id}>
@@ -206,6 +208,7 @@ const LeavesPage = () => {
                     </td>
                     <td>{formatDate(item.startDate)}</td>
                     <td>{formatDate(item.endDate)}</td>
+                    <td>{days} {days === 1 ? 'day' : 'days'}</td>
                     <td style={{ maxWidth: '240px', color: 'var(--text-secondary)' }}>
                       {item.reason || 'No reason provided'}
                     </td>

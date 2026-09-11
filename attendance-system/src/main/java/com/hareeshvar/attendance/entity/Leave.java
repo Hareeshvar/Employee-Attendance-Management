@@ -43,6 +43,12 @@ public class Leave {
     @Column(nullable = false)
     private LeaveStatus status;
 
+    @Column(name = "total_days")
+    private Integer totalDays;
+
+    @Column(name = "leave_type_id")
+    private Long leaveTypeId;
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
@@ -52,10 +58,27 @@ public class Leave {
     public void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+        calculateTotalDays();
+        syncLeaveTypeId();
     }
 
     @PreUpdate
     public void onUpdate() {
         updatedAt = LocalDateTime.now();
+        calculateTotalDays();
+        syncLeaveTypeId();
+    }
+
+    public void calculateTotalDays() {
+        if (startDate != null && endDate != null) {
+            long days = java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) + 1;
+            this.totalDays = (int) Math.max(days, 1);
+        }
+    }
+
+    public void syncLeaveTypeId() {
+        if (leaveType != null) {
+            this.leaveTypeId = (long) (leaveType.ordinal() + 1);
+        }
     }
 }

@@ -29,6 +29,8 @@ public class LeaveResponseDTO {
 
     private LeaveStatus status;
 
+    private Integer totalDays;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
