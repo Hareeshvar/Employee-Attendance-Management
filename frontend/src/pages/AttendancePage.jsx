@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, LogIn, LogOut, Trash2, Edit, Clock, Calendar } from 'lucide-react';
+import { Plus, Search, LogIn, LogOut, Trash2, Edit, Clock, Filter } from 'lucide-react';
 import { attendanceService } from '../services/attendanceService';
 import { userService } from '../services/userService';
 import { useAuth } from '../context/AuthContext';
@@ -7,17 +7,31 @@ import { LoadingSpinner, EmptyState, ErrorState } from '../components/LoadingSpi
 import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
 import Toast from '../components/Toast';
+import Pagination from '../components/Pagination';
 import { formatDate, formatTime, getErrorMessage } from '../utils/formatters';
 
 const AttendancePage = () => {
   const { isAdmin } = useAuth();
   const [attendances, setAttendances] = useState([]);
+  const [paginationInfo, setPaginationInfo] = useState({
+    pageNumber: 0,
+    pageSize: 10,
+    totalElements: 0,
+    totalPages: 1,
+    first: true,
+    last: true,
+  });
+
   const [users, setUsers] = useState([]);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
   const [toast, setToast] = useState({ message: '', type: 'success' });
 
   // Punch Action State
@@ -39,16 +53,50 @@ const AttendancePage = () => {
     status: 'PRESENT',
   });
 
-  const loadData = async () => {
+  // Load user list for dropdowns if admin
+  useEffect(() => {
+    if (isAdmin) {
+      userService.getAll({ page: 0, size: 1000 })
+        .then((res) => setUsers(Array.isArray(res) ? res : res.content || []))
+        .catch(() => setUsers([]));
+    }
+  }, [isAdmin]);
+
+  const loadAttendance = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [attData, usersData] = await Promise.all([
-        attendanceService.getAll(),
-        isAdmin ? userService.getAll().catch(() => []) : Promise.resolve([]),
-      ]);
-      setAttendances(attData);
-      setUsers(usersData);
+      const params = {
+        page,
+        size: pageSize,
+        search: search || undefined,
+        status: statusFilter || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      };
+
+      const res = await attendanceService.getAll(params);
+      if (res && res.content !== undefined) {
+        setAttendances(res.content);
+        setPaginationInfo({
+          pageNumber: res.pageNumber,
+          pageSize: res.pageSize,
+          totalElements: res.totalElements,
+          totalPages: res.totalPages,
+          first: res.first,
+          last: res.last,
+        });
+      } else if (Array.isArray(res)) {
+        setAttendances(res);
+        setPaginationInfo({
+          pageNumber: 0,
+          pageSize: res.length,
+          totalElements: res.length,
+          totalPages: 1,
+          first: true,
+          last: true,
+        });
+      }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -57,8 +105,28 @@ const AttendancePage = () => {
   };
 
   useEffect(() => {
-    loadData();
-  }, [isAdmin]);
+    loadAttendance();
+  }, [page, pageSize, search, statusFilter, startDate, endDate]);
+
+  const handleSearchChange = (val) => {
+    setSearch(val);
+    setPage(0);
+  };
+
+  const handleStatusFilterChange = (val) => {
+    setStatusFilter(val);
+    setPage(0);
+  };
+
+  const handleStartDateChange = (val) => {
+    setStartDate(val);
+    setPage(0);
+  };
+
+  const handleEndDateChange = (val) => {
+    setEndDate(val);
+    setPage(0);
+  };
 
   const handleQuickCheckIn = async () => {
     if (!punchUserId) {
@@ -69,7 +137,7 @@ const AttendancePage = () => {
     try {
       await attendanceService.checkIn(punchUserId);
       setToast({ message: `Checked In user #${punchUserId} successfully!`, type: 'success' });
-      loadData();
+      loadAttendance();
     } catch (err) {
       setToast({ message: getErrorMessage(err), type: 'error' });
     } finally {
@@ -86,7 +154,7 @@ const AttendancePage = () => {
     try {
       await attendanceService.checkOut(punchUserId);
       setToast({ message: `Checked Out user #${punchUserId} successfully!`, type: 'success' });
-      loadData();
+      loadAttendance();
     } catch (err) {
       setToast({ message: getErrorMessage(err), type: 'error' });
     } finally {
@@ -145,7 +213,7 @@ const AttendancePage = () => {
         setToast({ message: 'Attendance record logged successfully!', type: 'success' });
       }
       setIsModalOpen(false);
-      loadData();
+      loadAttendance();
     } catch (err) {
       setToast({ message: getErrorMessage(err), type: 'error' });
     } finally {
@@ -158,21 +226,14 @@ const AttendancePage = () => {
     try {
       await attendanceService.delete(id);
       setToast({ message: 'Attendance record deleted.', type: 'info' });
-      loadData();
+      loadAttendance();
     } catch (err) {
       setToast({ message: getErrorMessage(err), type: 'error' });
     }
   };
 
-  const filteredAttendances = attendances.filter((att) => {
-    const query = search.toLowerCase();
-    const matchesUser = String(att.userId).includes(query) || (att.attendanceDate && att.attendanceDate.includes(query));
-    const matchesStatus = statusFilter === 'ALL' || att.status === statusFilter;
-    return matchesUser && matchesStatus;
-  });
-
-  if (loading) return <LoadingSpinner text="Fetching attendance records..." />;
-  if (error) return <ErrorState message={error} onRetry={loadData} />;
+  if (loading && attendances.length === 0) return <LoadingSpinner text="Fetching attendance records..." />;
+  if (error && attendances.length === 0) return <ErrorState message={error} onRetry={loadAttendance} />;
 
   return (
     <div className="page-wrapper">
@@ -199,7 +260,7 @@ const AttendancePage = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: '220px' }}>
             <Clock size={20} style={{ color: 'var(--primary)' }} />
-            <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Punch Puncher:</span>
+            <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Punch Station:</span>
             {users.length > 0 ? (
               <select
                 className="form-select"
@@ -241,82 +302,120 @@ const AttendancePage = () => {
 
       {/* Filter and Table */}
       <div className="table-container">
-        <div className="table-header-bar">
-          <div className="search-box">
+        <div className="table-header-bar" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
+          <div className="search-box" style={{ minWidth: '220px', flex: 1 }}>
             <Search className="search-icon" size={18} />
             <input
               type="text"
               className="form-input"
-              placeholder="Search by User ID or Date (YYYY-MM-DD)..."
+              placeholder="Search user name or email..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
             />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Status:</span>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
             <select
               className="form-select"
               style={{ width: '140px' }}
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => handleStatusFilterChange(e.target.value)}
             >
-              <option value="ALL">All Status</option>
+              <option value="">All Statuses</option>
               <option value="PRESENT">PRESENT</option>
               <option value="ABSENT">ABSENT</option>
               <option value="LATE">LATE</option>
               <option value="HALF_DAY">HALF_DAY</option>
+              <option value="ON_LEAVE">ON_LEAVE</option>
             </select>
+
+            <input
+              type="date"
+              className="form-input"
+              style={{ width: '140px' }}
+              value={startDate}
+              placeholder="Start Date"
+              onChange={(e) => handleStartDateChange(e.target.value)}
+            />
+
+            <input
+              type="date"
+              className="form-input"
+              style={{ width: '140px' }}
+              value={endDate}
+              placeholder="End Date"
+              onChange={(e) => handleEndDateChange(e.target.value)}
+            />
           </div>
         </div>
 
-        {filteredAttendances.length === 0 ? (
-          <EmptyState title="No Attendance Logs" description="No attendance entries match your search criteria." />
+        {attendances.length === 0 ? (
+          <EmptyState title="No Attendance Logs" description="No attendance entries match your search or filter criteria." />
         ) : (
-          <table className="custom-table">
-            <thead>
-              <tr>
-                <th>Record ID</th>
-                <th>User ID</th>
-                <th>Date</th>
-                <th>Check-In</th>
-                <th>Check-Out</th>
-                <th>Working Hours</th>
-                <th>Status</th>
-                {isAdmin && <th style={{ textAlign: 'right' }}>Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAttendances.map((record) => {
-                const id = record.attendanceId || record.id;
-                return (
-                  <tr key={id}>
-                    <td style={{ fontWeight: 700 }}>#{id}</td>
-                    <td>User #{record.userId}</td>
-                    <td>{formatDate(record.attendanceDate)}</td>
-                    <td>{formatTime(record.checkInTime)}</td>
-                    <td>{formatTime(record.checkOutTime)}</td>
-                    <td>{record.workingHours !== null ? `${record.workingHours} hrs` : '--'}</td>
-                    <td>
-                      <StatusBadge status={record.status} />
-                    </td>
-                    {isAdmin && (
-                      <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
-                          <button className="btn btn-secondary btn-sm" onClick={() => openEditModal(record)}>
-                            <Edit size={15} />
-                          </button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDelete(id)}>
-                            <Trash2 size={15} />
-                          </button>
+          <>
+            <table className="custom-table">
+              <thead>
+                <tr>
+                  <th>Record ID</th>
+                  <th>Employee Name</th>
+                  <th>Date</th>
+                  <th>Check-In</th>
+                  <th>Check-Out</th>
+                  <th>Working Hours</th>
+                  <th>Status</th>
+                  {isAdmin && <th style={{ textAlign: 'right' }}>Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {attendances.map((record) => {
+                  const id = record.attendanceId || record.id;
+                  return (
+                    <tr key={id}>
+                      <td style={{ fontWeight: 700 }}>#{id}</td>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>
+                          {record.userFirstName ? `${record.userFirstName} ${record.userLastName}` : `User #${record.userId}`}
                         </div>
                       </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      <td>{formatDate(record.attendanceDate)}</td>
+                      <td>{formatTime(record.checkInTime)}</td>
+                      <td>{formatTime(record.checkOutTime)}</td>
+                      <td>{record.workingHours !== null && record.workingHours !== undefined ? `${record.workingHours} hrs` : '--'}</td>
+                      <td>
+                        <StatusBadge status={record.status} />
+                      </td>
+                      {isAdmin && (
+                        <td style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => openEditModal(record)}>
+                              <Edit size={15} />
+                            </button>
+                            <button className="btn btn-danger btn-sm" onClick={() => handleDelete(id)}>
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            <Pagination
+              pageNumber={paginationInfo.pageNumber}
+              pageSize={paginationInfo.pageSize}
+              totalElements={paginationInfo.totalElements}
+              totalPages={paginationInfo.totalPages}
+              first={paginationInfo.first}
+              last={paginationInfo.last}
+              onPageChange={(newPage) => setPage(newPage)}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setPage(0);
+              }}
+            />
+          </>
         )}
       </div>
 

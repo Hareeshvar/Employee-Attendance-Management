@@ -16,7 +16,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.web.bind.annotation.RequestParam;
+
 import com.hareeshvar.attendance.dto.request.PayrollRequestDTO;
+import com.hareeshvar.attendance.dto.response.PageResponse;
 import com.hareeshvar.attendance.dto.response.PayrollResponseDTO;
 import com.hareeshvar.attendance.security.service.CustomUserDetails;
 import com.hareeshvar.attendance.service.PayrollService;
@@ -40,8 +46,19 @@ public class PayrollController {
     }
 
     @GetMapping
-    public List<PayrollResponseDTO> getAllPayrolls(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        return payrollService.getAllPayrolls(userDetails);
+    public PageResponse<PayrollResponseDTO> getAllPayrolls(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "payrollId") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String month,
+            @RequestParam(required = false) Integer year,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        return payrollService.getPayrollsPaginated(pageable, search, month, year, userDetails);
     }
 
     @GetMapping("/{id}")

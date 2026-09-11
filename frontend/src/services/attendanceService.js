@@ -1,8 +1,14 @@
 import api from './api';
 
 export const attendanceService = {
-  getAll: async () => {
-    const response = await api.get('/attendance');
+  getAll: async (params) => {
+    const response = await api.get('/attendance', { params });
+    return response.data;
+  },
+  getAnalytics: async (startDate, endDate) => {
+    const response = await api.get('/attendance/analytics', {
+      params: { startDate, endDate },
+    });
     return response.data;
   },
   getById: async (id) => {

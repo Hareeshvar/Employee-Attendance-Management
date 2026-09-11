@@ -44,21 +44,21 @@ const DashboardPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const attendRes = await attendanceService.getAll().catch(() => []);
-      const leavesRes = await leaveService.getAll().catch(() => []);
-      setAttendances(attendRes);
-      setLeaves(leavesRes);
+      const attendRes = await attendanceService.getAnalytics().catch(() => []);
+      const leavesRes = await leaveService.getAll({ page: 0, size: 1000 }).catch(() => []);
+      setAttendances(Array.isArray(attendRes) ? attendRes : attendRes.content || []);
+      setLeaves(Array.isArray(leavesRes) ? leavesRes : leavesRes.content || []);
 
       if (isAdmin || isHr || isManager) {
-        const usersRes = await userService.getAll().catch(() => []);
-        setUsers(usersRes);
+        const usersRes = await userService.getAll({ page: 0, size: 1000 }).catch(() => []);
+        setUsers(Array.isArray(usersRes) ? usersRes : usersRes.content || []);
       }
 
       if (isAdmin || isHr) {
         const deptRes = await departmentService.getAll().catch(() => []);
-        const payRes = await payrollService.getAll().catch(() => []);
-        setDepartments(deptRes);
-        setPayrolls(payRes);
+        const payRes = await payrollService.getAll({ page: 0, size: 1000 }).catch(() => []);
+        setDepartments(Array.isArray(deptRes) ? deptRes : deptRes.content || []);
+        setPayrolls(Array.isArray(payRes) ? payRes : payRes.content || []);
       }
     } catch (err) {
       setError(getErrorMessage(err));

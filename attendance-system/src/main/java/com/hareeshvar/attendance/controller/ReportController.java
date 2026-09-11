@@ -15,7 +15,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.web.bind.annotation.RequestParam;
+
 import com.hareeshvar.attendance.dto.request.ReportRequestDTO;
+import com.hareeshvar.attendance.dto.response.PageResponse;
 import com.hareeshvar.attendance.dto.response.ReportResponseDTO;
 import com.hareeshvar.attendance.security.service.CustomUserDetails;
 import com.hareeshvar.attendance.service.ReportService;
@@ -38,8 +44,18 @@ public class ReportController {
     }
 
     @GetMapping
-    public List<ReportResponseDTO> getAllReports(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        return reportService.getAllReports(userDetails);
+    public PageResponse<ReportResponseDTO> getAllReports(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "reportId") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String reportType,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        return reportService.getReportsPaginated(pageable, search, reportType, userDetails);
     }
 
     @GetMapping("/{id}")

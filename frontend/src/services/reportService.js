@@ -1,8 +1,8 @@
 import api from './api';
 
 export const reportService = {
-  getAll: async () => {
-    const response = await api.get('/reports');
+  getAll: async (params) => {
+    const response = await api.get('/reports', { params });
     return response.data;
   },
   getById: async (id) => {

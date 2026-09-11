@@ -7,13 +7,19 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+
 import com.hareeshvar.attendance.dto.request.UserRequestDTO;
+import com.hareeshvar.attendance.dto.response.PageResponse;
 import com.hareeshvar.attendance.dto.response.UserResponseDTO;
 import com.hareeshvar.attendance.entity.Department;
 import com.hareeshvar.attendance.entity.Designation;
 import com.hareeshvar.attendance.entity.Role;
 import com.hareeshvar.attendance.entity.User;
 import com.hareeshvar.attendance.enums.RoleName;
+import com.hareeshvar.attendance.enums.UserStatus;
 import com.hareeshvar.attendance.exception.ResourceAlreadyExistsException;
 import com.hareeshvar.attendance.exception.ResourceNotFoundException;
 import com.hareeshvar.attendance.mapper.UserMapper;
@@ -21,6 +27,7 @@ import com.hareeshvar.attendance.repository.DepartmentRepository;
 import com.hareeshvar.attendance.repository.DesignationRepository;
 import com.hareeshvar.attendance.repository.RoleRepository;
 import com.hareeshvar.attendance.repository.UserRepository;
+import com.hareeshvar.attendance.repository.specification.UserSpecification;
 import com.hareeshvar.attendance.security.service.CustomUserDetails;
 import com.hareeshvar.attendance.service.UserService;
 
@@ -95,6 +102,35 @@ public class UserServiceImpl implements UserService {
         }
 
         return list.stream().map(userMapper::toResponse).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<UserResponseDTO> getUsersPaginated(
+            Pageable pageable,
+            String search,
+            Long departmentId,
+            UserStatus status,
+            Long roleId,
+            CustomUserDetails userDetails
+    ) {
+        if (userDetails == null) {
+            throw new AccessDeniedException("Authentication required");
+        }
+
+        Specification<User> spec = UserSpecification.filterUsers(
+                search,
+                departmentId,
+                status,
+                roleId,
+                userDetails.getRole(),
+                userDetails.getDepartmentId(),
+                userDetails.getUserId()
+        );
+
+        Page<User> page = userRepository.findAll(spec, pageable);
+        Page<UserResponseDTO> dtoPage = page.map(userMapper::toResponse);
+        return PageResponse.from(dtoPage);
     }
 
     @Override

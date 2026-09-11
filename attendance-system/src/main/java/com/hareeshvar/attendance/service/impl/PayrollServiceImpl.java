@@ -2,11 +2,15 @@ package com.hareeshvar.attendance.service.impl;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.hareeshvar.attendance.dto.request.PayrollRequestDTO;
+import com.hareeshvar.attendance.dto.response.PageResponse;
 import com.hareeshvar.attendance.dto.response.PayrollResponseDTO;
 import com.hareeshvar.attendance.entity.Payroll;
 import com.hareeshvar.attendance.entity.User;
@@ -15,6 +19,7 @@ import com.hareeshvar.attendance.exception.ResourceNotFoundException;
 import com.hareeshvar.attendance.mapper.PayrollMapper;
 import com.hareeshvar.attendance.repository.PayrollRepository;
 import com.hareeshvar.attendance.repository.UserRepository;
+import com.hareeshvar.attendance.repository.specification.PayrollSpecification;
 import com.hareeshvar.attendance.security.service.CustomUserDetails;
 import com.hareeshvar.attendance.service.PayrollService;
 
@@ -60,6 +65,37 @@ public class PayrollServiceImpl implements PayrollService {
 
         // MANAGER should not access global payroll
         throw new AccessDeniedException("Access denied: Managers do not have access to global payroll data");
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<PayrollResponseDTO> getPayrollsPaginated(
+            Pageable pageable,
+            String search,
+            String month,
+            Integer year,
+            CustomUserDetails userDetails
+    ) {
+        if (userDetails == null) {
+            throw new AccessDeniedException("Authentication required");
+        }
+
+        if (userDetails.getRole() == RoleName.MANAGER) {
+            throw new AccessDeniedException("Access denied: Managers do not have access to global payroll data");
+        }
+
+        Specification<Payroll> spec = PayrollSpecification.filterPayrolls(
+                search,
+                month,
+                year,
+                userDetails.getRole(),
+                userDetails.getDepartmentId(),
+                userDetails.getUserId()
+        );
+
+        Page<Payroll> page = payrollRepository.findAll(spec, pageable);
+        Page<PayrollResponseDTO> dtoPage = page.map(payrollMapper::toResponse);
+        return PageResponse.from(dtoPage);
     }
 
     @Override

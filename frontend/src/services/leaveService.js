@@ -1,8 +1,8 @@
 import api from './api';
 
 export const leaveService = {
-  getAll: async () => {
-    const response = await api.get('/leaves');
+  getAll: async (params) => {
+    const response = await api.get('/leaves', { params });
     return response.data;
   },
   getById: async (id) => {

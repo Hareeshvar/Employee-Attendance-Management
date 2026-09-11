@@ -16,8 +16,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.web.bind.annotation.RequestParam;
+
 import com.hareeshvar.attendance.dto.request.UserRequestDTO;
+import com.hareeshvar.attendance.dto.response.PageResponse;
 import com.hareeshvar.attendance.dto.response.UserResponseDTO;
+import com.hareeshvar.attendance.enums.UserStatus;
 import com.hareeshvar.attendance.security.service.CustomUserDetails;
 import com.hareeshvar.attendance.service.UserService;
 
@@ -42,8 +49,20 @@ public class UserController {
     }
 
     @GetMapping
-    public List<UserResponseDTO> getAllUsers(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        return userService.getAllUsers(userDetails);
+    public PageResponse<UserResponseDTO> getAllUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "userId") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Long departmentId,
+            @RequestParam(required = false) UserStatus status,
+            @RequestParam(required = false) Long roleId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        return userService.getUsersPaginated(pageable, search, departmentId, status, roleId, userDetails);
     }
 
     @GetMapping("/{id}")

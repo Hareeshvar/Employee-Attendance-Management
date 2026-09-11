@@ -5,12 +5,16 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.hareeshvar.attendance.dto.request.AttendanceRequestDTO;
 import com.hareeshvar.attendance.dto.response.AttendanceResponseDTO;
+import com.hareeshvar.attendance.dto.response.PageResponse;
 import com.hareeshvar.attendance.entity.Attendance;
 import com.hareeshvar.attendance.entity.Department;
 import com.hareeshvar.attendance.entity.User;
@@ -22,6 +26,7 @@ import com.hareeshvar.attendance.mapper.AttendanceMapper;
 import com.hareeshvar.attendance.repository.AttendanceRepository;
 import com.hareeshvar.attendance.repository.DepartmentRepository;
 import com.hareeshvar.attendance.repository.UserRepository;
+import com.hareeshvar.attendance.repository.specification.AttendanceSpecification;
 import com.hareeshvar.attendance.security.service.CustomUserDetails;
 import com.hareeshvar.attendance.service.AttendanceService;
 
@@ -76,6 +81,63 @@ public class AttendanceServiceImpl implements AttendanceService {
             list = attendanceRepository.findByUserUserId(userDetails.getUserId());
         }
 
+        return list.stream().map(attendanceMapper::toResponse).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<AttendanceResponseDTO> getAttendancePaginated(
+            Pageable pageable,
+            String search,
+            AttendanceStatus status,
+            Long departmentId,
+            LocalDate startDate,
+            LocalDate endDate,
+            CustomUserDetails userDetails
+    ) {
+        if (userDetails == null) {
+            throw new AccessDeniedException("Authentication required");
+        }
+
+        Specification<Attendance> spec = AttendanceSpecification.filterAttendance(
+                search,
+                status,
+                departmentId,
+                startDate,
+                endDate,
+                userDetails.getRole(),
+                userDetails.getDepartmentId(),
+                userDetails.getUserId()
+        );
+
+        Page<Attendance> page = attendanceRepository.findAll(spec, pageable);
+        Page<AttendanceResponseDTO> dtoPage = page.map(attendanceMapper::toResponse);
+        return PageResponse.from(dtoPage);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AttendanceResponseDTO> getAnalyticsAttendance(
+            LocalDate startDate,
+            LocalDate endDate,
+            CustomUserDetails userDetails
+    ) {
+        if (userDetails == null) {
+            throw new AccessDeniedException("Authentication required");
+        }
+
+        Specification<Attendance> spec = AttendanceSpecification.filterAttendance(
+                null,
+                null,
+                null,
+                startDate,
+                endDate,
+                userDetails.getRole(),
+                userDetails.getDepartmentId(),
+                userDetails.getUserId()
+        );
+
+        List<Attendance> list = attendanceRepository.findAll(spec);
         return list.stream().map(attendanceMapper::toResponse).toList();
     }
 

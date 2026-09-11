@@ -1,16 +1,30 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, FileText, Trash2, Download } from 'lucide-react';
+import { Plus, FileText, Trash2, Search } from 'lucide-react';
 import { reportService } from '../services/reportService';
 import { useAuth } from '../context/AuthContext';
 import { LoadingSpinner, EmptyState, ErrorState } from '../components/LoadingSpinner';
-import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
 import Toast from '../components/Toast';
+import Pagination from '../components/Pagination';
 import { formatDate, getErrorMessage } from '../utils/formatters';
 
 const ReportsPage = () => {
   const { username } = useAuth();
   const [reports, setReports] = useState([]);
+  const [paginationInfo, setPaginationInfo] = useState({
+    pageNumber: 0,
+    pageSize: 10,
+    totalElements: 0,
+    totalPages: 1,
+    first: true,
+    last: true,
+  });
+
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const [search, setSearch] = useState('');
+  const [reportTypeFilter, setReportTypeFilter] = useState('');
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [toast, setToast] = useState({ message: '', type: 'success' });
@@ -25,12 +39,39 @@ const ReportsPage = () => {
     description: '',
   });
 
-  const loadData = async () => {
+  const loadReports = async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await reportService.getAll();
-      setReports(data);
+      const params = {
+        page,
+        size: pageSize,
+        search: search || undefined,
+        reportType: reportTypeFilter || undefined,
+      };
+
+      const res = await reportService.getAll(params);
+      if (res && res.content !== undefined) {
+        setReports(res.content);
+        setPaginationInfo({
+          pageNumber: res.pageNumber,
+          pageSize: res.pageSize,
+          totalElements: res.totalElements,
+          totalPages: res.totalPages,
+          first: res.first,
+          last: res.last,
+        });
+      } else if (Array.isArray(res)) {
+        setReports(res);
+        setPaginationInfo({
+          pageNumber: 0,
+          pageSize: res.length,
+          totalElements: res.length,
+          totalPages: 1,
+          first: true,
+          last: true,
+        });
+      }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -39,8 +80,18 @@ const ReportsPage = () => {
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    loadReports();
+  }, [page, pageSize, search, reportTypeFilter]);
+
+  const handleSearchChange = (val) => {
+    setSearch(val);
+    setPage(0);
+  };
+
+  const handleReportTypeFilterChange = (val) => {
+    setReportTypeFilter(val);
+    setPage(0);
+  };
 
   const openModal = () => {
     setFormData({
@@ -68,7 +119,7 @@ const ReportsPage = () => {
       await reportService.create(payload);
       setToast({ message: 'System report generated successfully!', type: 'success' });
       setIsModalOpen(false);
-      loadData();
+      loadReports();
     } catch (err) {
       setToast({ message: getErrorMessage(err), type: 'error' });
     } finally {
@@ -81,14 +132,14 @@ const ReportsPage = () => {
     try {
       await reportService.delete(id);
       setToast({ message: 'Report record deleted.', type: 'info' });
-      loadData();
+      loadReports();
     } catch (err) {
       setToast({ message: getErrorMessage(err), type: 'error' });
     }
   };
 
-  if (loading) return <LoadingSpinner text="Loading system reports..." />;
-  if (error) return <ErrorState message={error} onRetry={loadData} />;
+  if (loading && reports.length === 0) return <LoadingSpinner text="Loading system reports..." />;
+  if (error && reports.length === 0) return <ErrorState message={error} onRetry={loadReports} />;
 
   return (
     <div className="page-wrapper">
@@ -109,44 +160,91 @@ const ReportsPage = () => {
       </div>
 
       <div className="table-container">
+        <div className="table-header-bar" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
+          <div className="search-box" style={{ minWidth: '220px', flex: 1 }}>
+            <Search className="search-icon" size={18} />
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Search report name or description..."
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <select
+              className="form-select"
+              style={{ width: '180px' }}
+              value={reportTypeFilter}
+              onChange={(e) => handleReportTypeFilterChange(e.target.value)}
+            >
+              <option value="">All Report Types</option>
+              <option value="ATTENDANCE_SUMMARY">ATTENDANCE_SUMMARY</option>
+              <option value="LEAVE_AUDIT">LEAVE_AUDIT</option>
+              <option value="PAYROLL_SUMMARY">PAYROLL_SUMMARY</option>
+              <option value="DEPARTMENT_ANALYTICS">DEPARTMENT_ANALYTICS</option>
+              <option value="PERSONAL">PERSONAL</option>
+              <option value="TEAM">TEAM</option>
+              <option value="SYSTEM">SYSTEM</option>
+            </select>
+          </div>
+        </div>
+
         {reports.length === 0 ? (
-          <EmptyState title="No Generated Reports" description="You have not compiled any system reports yet." />
+          <EmptyState title="No Generated Reports" description="No system reports match your search or filter criteria." />
         ) : (
-          <table className="custom-table">
-            <thead>
-              <tr>
-                <th>Report ID</th>
-                <th>Report Name</th>
-                <th>Type</th>
-                <th>Generated By</th>
-                <th>Date</th>
-                <th>Description</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {reports.map((r) => {
-                const id = r.reportId || r.id;
-                return (
-                  <tr key={id}>
-                    <td style={{ fontWeight: 700 }}>#{id}</td>
-                    <td style={{ fontWeight: 600 }}>{r.reportName}</td>
-                    <td>
-                      <span className="badge badge-info">{r.reportType}</span>
-                    </td>
-                    <td>{r.generatedBy}</td>
-                    <td>{formatDate(r.generatedDate)}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{r.description || 'N/A'}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button className="btn btn-danger btn-sm" onClick={() => handleDelete(id)}>
-                        <Trash2 size={15} />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <>
+            <table className="custom-table">
+              <thead>
+                <tr>
+                  <th>Report ID</th>
+                  <th>Report Name</th>
+                  <th>Type</th>
+                  <th>Generated By</th>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reports.map((r) => {
+                  const id = r.reportId || r.id;
+                  return (
+                    <tr key={id}>
+                      <td style={{ fontWeight: 700 }}>#{id}</td>
+                      <td style={{ fontWeight: 600 }}>{r.reportName}</td>
+                      <td>
+                        <span className="badge badge-info">{r.reportType}</span>
+                      </td>
+                      <td>{r.generatedBy}</td>
+                      <td>{formatDate(r.generatedDate)}</td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{r.description || 'N/A'}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(id)}>
+                          <Trash2 size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            <Pagination
+              pageNumber={paginationInfo.pageNumber}
+              pageSize={paginationInfo.pageSize}
+              totalElements={paginationInfo.totalElements}
+              totalPages={paginationInfo.totalPages}
+              first={paginationInfo.first}
+              last={paginationInfo.last}
+              onPageChange={(newPage) => setPage(newPage)}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setPage(0);
+              }}
+            />
+          </>
         )}
       </div>
 

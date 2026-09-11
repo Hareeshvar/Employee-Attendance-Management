@@ -15,8 +15,16 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.web.bind.annotation.RequestParam;
+
 import com.hareeshvar.attendance.dto.request.LeaveRequestDTO;
 import com.hareeshvar.attendance.dto.response.LeaveResponseDTO;
+import com.hareeshvar.attendance.dto.response.PageResponse;
+import com.hareeshvar.attendance.enums.LeaveStatus;
+import com.hareeshvar.attendance.enums.LeaveType;
 import com.hareeshvar.attendance.security.service.CustomUserDetails;
 import com.hareeshvar.attendance.service.LeaveService;
 
@@ -39,8 +47,19 @@ public class LeaveController {
     }
 
     @GetMapping
-    public List<LeaveResponseDTO> getAllLeaves(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        return leaveService.getAllLeaves(userDetails);
+    public PageResponse<LeaveResponseDTO> getAllLeaves(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "leaveId") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) LeaveStatus status,
+            @RequestParam(required = false) LeaveType leaveType,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        return leaveService.getLeavesPaginated(pageable, search, status, leaveType, userDetails);
     }
 
     @GetMapping("/{id}")

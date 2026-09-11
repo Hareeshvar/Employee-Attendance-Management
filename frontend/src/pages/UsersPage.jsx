@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, Trash2, Edit, User, Mail, Shield, Building2, Briefcase } from 'lucide-react';
+import { Plus, Search, Trash2, Edit, Filter } from 'lucide-react';
 import { userService } from '../services/userService';
 import { roleService } from '../services/roleService';
 import { departmentService } from '../services/departmentService';
@@ -8,17 +8,33 @@ import { LoadingSpinner, EmptyState, ErrorState } from '../components/LoadingSpi
 import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
 import Toast from '../components/Toast';
+import Pagination from '../components/Pagination';
 import { getErrorMessage } from '../utils/formatters';
 
 const UsersPage = () => {
   const [users, setUsers] = useState([]);
+  const [paginationInfo, setPaginationInfo] = useState({
+    pageNumber: 0,
+    pageSize: 10,
+    totalElements: 0,
+    totalPages: 1,
+    first: true,
+    last: true,
+  });
+
   const [roles, setRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [designations, setDesignations] = useState([]);
 
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const [search, setSearch] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [search, setSearch] = useState('');
   const [toast, setToast] = useState({ message: '', type: 'success' });
 
   // Modal States
@@ -41,21 +57,81 @@ const UsersPage = () => {
     designationId: '',
   });
 
-  const loadData = async () => {
+  // Load auxiliary data once
+  useEffect(() => {
+    const loadAuxData = async () => {
+      try {
+        const [rolesData, deptsData, desigData] = await Promise.all([
+          roleService.getAll().catch(() => []),
+          departmentService.getAll().catch(() => []),
+          designationService.getAll().catch(() => []),
+        ]);
+        setRoles(rolesData);
+        setDepartments(deptsData);
+        setDesignations(desigData);
+      } catch (err) {
+        console.error('Error loading auxiliary metadata:', err);
+      }
+    };
+    loadAuxData();
+  }, []);
+
+  // Reset page to 0 when search or filters change
+  const handleSearchChange = (val) => {
+    setSearch(val);
+    setPage(0);
+  };
+
+  const handleDepartmentFilterChange = (val) => {
+    setDepartmentFilter(val);
+    setPage(0);
+  };
+
+  const handleStatusFilterChange = (val) => {
+    setStatusFilter(val);
+    setPage(0);
+  };
+
+  const handleRoleFilterChange = (val) => {
+    setRoleFilter(val);
+    setPage(0);
+  };
+
+  const loadUsers = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [usersData, rolesData, deptsData, desigData] = await Promise.all([
-        userService.getAll(),
-        roleService.getAll().catch(() => []),
-        departmentService.getAll().catch(() => []),
-        designationService.getAll().catch(() => []),
-      ]);
+      const params = {
+        page,
+        size: pageSize,
+        search: search || undefined,
+        departmentId: departmentFilter || undefined,
+        status: statusFilter || undefined,
+        roleId: roleFilter || undefined,
+      };
 
-      setUsers(usersData);
-      setRoles(rolesData);
-      setDepartments(deptsData);
-      setDesignations(desigData);
+      const res = await userService.getAll(params);
+      if (res && res.content !== undefined) {
+        setUsers(res.content);
+        setPaginationInfo({
+          pageNumber: res.pageNumber,
+          pageSize: res.pageSize,
+          totalElements: res.totalElements,
+          totalPages: res.totalPages,
+          first: res.first,
+          last: res.last,
+        });
+      } else if (Array.isArray(res)) {
+        setUsers(res);
+        setPaginationInfo({
+          pageNumber: 0,
+          pageSize: res.length,
+          totalElements: res.length,
+          totalPages: 1,
+          first: true,
+          last: true,
+        });
+      }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -64,8 +140,8 @@ const UsersPage = () => {
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    loadUsers();
+  }, [page, pageSize, search, departmentFilter, statusFilter, roleFilter]);
 
   const openCreateModal = () => {
     setSelectedUser(null);
@@ -91,7 +167,7 @@ const UsersPage = () => {
       lastName: user.lastName || '',
       username: user.username || '',
       email: user.email || '',
-      password: '', // Blank password unless changing
+      password: '',
       gender: user.gender || 'MALE',
       status: user.status || 'ACTIVE',
       roleId: user.roleId || '',
@@ -132,7 +208,7 @@ const UsersPage = () => {
         setToast({ message: 'User created successfully!', type: 'success' });
       }
       setIsModalOpen(false);
-      loadData();
+      loadUsers();
     } catch (err) {
       setToast({ message: getErrorMessage(err), type: 'error' });
     } finally {
@@ -147,7 +223,7 @@ const UsersPage = () => {
       await userService.delete(selectedUser.userId);
       setToast({ message: 'User deleted successfully!', type: 'success' });
       setIsDeleteModalOpen(false);
-      loadData();
+      loadUsers();
     } catch (err) {
       setToast({ message: getErrorMessage(err), type: 'error' });
     } finally {
@@ -155,18 +231,8 @@ const UsersPage = () => {
     }
   };
 
-  const filteredUsers = users.filter((u) => {
-    const query = search.toLowerCase();
-    const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
-    return (
-      fullName.includes(query) ||
-      (u.username && u.username.toLowerCase().includes(query)) ||
-      (u.email && u.email.toLowerCase().includes(query))
-    );
-  });
-
-  if (loading) return <LoadingSpinner text="Loading users management directory..." />;
-  if (error) return <ErrorState message={error} onRetry={loadData} />;
+  if (loading && users.length === 0) return <LoadingSpinner text="Loading users management directory..." />;
+  if (error && users.length === 0) return <ErrorState message={error} onRetry={loadUsers} />;
 
   return (
     <div className="page-wrapper">
@@ -187,23 +253,65 @@ const UsersPage = () => {
       </div>
 
       <div className="table-container">
-        <div className="table-header-bar">
-          <div className="search-box">
+        <div className="table-header-bar" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
+          <div className="search-box" style={{ minWidth: '240px', flex: 1 }}>
             <Search className="search-icon" size={18} />
             <input
               type="text"
               className="form-input"
-              placeholder="Search user by name or email..."
+              placeholder="Search by name, username, email..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
             />
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <select
+              className="form-select"
+              style={{ width: '160px' }}
+              value={departmentFilter}
+              onChange={(e) => handleDepartmentFilterChange(e.target.value)}
+            >
+              <option value="">All Departments</option>
+              {departments.map((d) => (
+                <option key={d.departmentId || d.id} value={d.departmentId || d.id}>
+                  {d.departmentName}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="form-select"
+              style={{ width: '140px' }}
+              value={statusFilter}
+              onChange={(e) => handleStatusFilterChange(e.target.value)}
+            >
+              <option value="">All Statuses</option>
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="INACTIVE">INACTIVE</option>
+              <option value="SUSPENDED">SUSPENDED</option>
+            </select>
+
+            <select
+              className="form-select"
+              style={{ width: '140px' }}
+              value={roleFilter}
+              onChange={(e) => handleRoleFilterChange(e.target.value)}
+            >
+              <option value="">All Roles</option>
+              {roles.map((r) => (
+                <option key={r.roleId || r.id} value={r.roleId || r.id}>
+                  {r.roleName}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {filteredUsers.length === 0 ? (
+        {users.length === 0 ? (
           <EmptyState
             title="No Users Found"
-            description="There are no user accounts matching your criteria."
+            description="There are no user accounts matching your search or filter criteria."
             action={
               <button className="btn btn-primary btn-sm" onClick={openCreateModal}>
                 Create First User
@@ -211,55 +319,71 @@ const UsersPage = () => {
             }
           />
         ) : (
-          <table className="custom-table">
-            <thead>
-              <tr>
-                <th>User ID</th>
-                <th>Employee Name</th>
-                <th>Username & Email</th>
-                <th>Role</th>
-                <th>Department</th>
-                <th>Designation</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map((user) => (
-                <tr key={user.userId}>
-                  <td style={{ fontWeight: 700 }}>#{user.userId}</td>
-                  <td>
-                    <div style={{ fontWeight: 600 }}>
-                      {user.firstName} {user.lastName}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{user.gender}</div>
-                  </td>
-                  <td>
-                    <div>{user.username}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{user.email}</div>
-                  </td>
-                  <td>
-                    <span className="badge badge-info">{user.roleName || `Role #${user.roleId}`}</span>
-                  </td>
-                  <td>{user.departmentName || (user.departmentId ? `Dept #${user.departmentId}` : 'N/A')}</td>
-                  <td>{user.designationName || (user.designationId ? `Desig #${user.designationId}` : 'N/A')}</td>
-                  <td>
-                    <StatusBadge status={user.status} />
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
-                      <button className="btn btn-secondary btn-sm" onClick={() => openEditModal(user)} title="Edit user">
-                        <Edit size={15} />
-                      </button>
-                      <button className="btn btn-danger btn-sm" onClick={() => openDeleteModal(user)} title="Delete user">
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </td>
+          <>
+            <table className="custom-table">
+              <thead>
+                <tr>
+                  <th>User ID</th>
+                  <th>Employee Name</th>
+                  <th>Username & Email</th>
+                  <th>Role</th>
+                  <th>Department</th>
+                  <th>Designation</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {users.map((user) => (
+                  <tr key={user.userId}>
+                    <td style={{ fontWeight: 700 }}>#{user.userId}</td>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>
+                        {user.firstName} {user.lastName}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{user.gender}</div>
+                    </td>
+                    <td>
+                      <div>{user.username}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{user.email}</div>
+                    </td>
+                    <td>
+                      <span className="badge badge-info">{user.roleName || `Role #${user.roleId}`}</span>
+                    </td>
+                    <td>{user.departmentName || (user.departmentId ? `Dept #${user.departmentId}` : 'N/A')}</td>
+                    <td>{user.designationName || (user.designationId ? `Desig #${user.designationId}` : 'N/A')}</td>
+                    <td>
+                      <StatusBadge status={user.status} />
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
+                        <button className="btn btn-secondary btn-sm" onClick={() => openEditModal(user)} title="Edit user">
+                          <Edit size={15} />
+                        </button>
+                        <button className="btn btn-danger btn-sm" onClick={() => openDeleteModal(user)} title="Delete user">
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <Pagination
+              pageNumber={paginationInfo.pageNumber}
+              pageSize={paginationInfo.pageSize}
+              totalElements={paginationInfo.totalElements}
+              totalPages={paginationInfo.totalPages}
+              first={paginationInfo.first}
+              last={paginationInfo.last}
+              onPageChange={(newPage) => setPage(newPage)}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setPage(0);
+              }}
+            />
+          </>
         )}
       </div>
 

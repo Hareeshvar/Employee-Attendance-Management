@@ -1,17 +1,32 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, DollarSign, Trash2, Edit } from 'lucide-react';
+import { Plus, Search, Trash2, Edit } from 'lucide-react';
 import { payrollService } from '../services/payrollService';
 import { userService } from '../services/userService';
 import { useAuth } from '../context/AuthContext';
 import { LoadingSpinner, EmptyState, ErrorState } from '../components/LoadingSpinner';
 import Modal from '../components/Modal';
 import Toast from '../components/Toast';
+import Pagination from '../components/Pagination';
 import { formatCurrency, getErrorMessage } from '../utils/formatters';
 
 const PayrollsPage = () => {
   const { isAdmin } = useAuth();
   const [payrolls, setPayrolls] = useState([]);
+  const [paginationInfo, setPaginationInfo] = useState({
+    pageNumber: 0,
+    pageSize: 10,
+    totalElements: 0,
+    totalPages: 1,
+    first: true,
+    last: true,
+  });
+
   const [users, setUsers] = useState([]);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const [search, setSearch] = useState('');
+  const [monthFilter, setMonthFilter] = useState('');
+  const [yearFilter, setYearFilter] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -30,16 +45,48 @@ const PayrollsPage = () => {
     deduction: 200,
   });
 
-  const loadData = async () => {
+  useEffect(() => {
+    if (isAdmin) {
+      userService.getAll({ page: 0, size: 1000 })
+        .then((res) => setUsers(Array.isArray(res) ? res : res.content || []))
+        .catch(() => setUsers([]));
+    }
+  }, [isAdmin]);
+
+  const loadPayrolls = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [payData, usersData] = await Promise.all([
-        payrollService.getAll(),
-        isAdmin ? userService.getAll().catch(() => []) : Promise.resolve([]),
-      ]);
-      setPayrolls(payData);
-      setUsers(usersData);
+      const params = {
+        page,
+        size: pageSize,
+        search: search || undefined,
+        month: monthFilter || undefined,
+        year: yearFilter || undefined,
+      };
+
+      const res = await payrollService.getAll(params);
+      if (res && res.content !== undefined) {
+        setPayrolls(res.content);
+        setPaginationInfo({
+          pageNumber: res.pageNumber,
+          pageSize: res.pageSize,
+          totalElements: res.totalElements,
+          totalPages: res.totalPages,
+          first: res.first,
+          last: res.last,
+        });
+      } else if (Array.isArray(res)) {
+        setPayrolls(res);
+        setPaginationInfo({
+          pageNumber: 0,
+          pageSize: res.length,
+          totalElements: res.length,
+          totalPages: 1,
+          first: true,
+          last: true,
+        });
+      }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -48,8 +95,23 @@ const PayrollsPage = () => {
   };
 
   useEffect(() => {
-    loadData();
-  }, [isAdmin]);
+    loadPayrolls();
+  }, [page, pageSize, search, monthFilter, yearFilter]);
+
+  const handleSearchChange = (val) => {
+    setSearch(val);
+    setPage(0);
+  };
+
+  const handleMonthFilterChange = (val) => {
+    setMonthFilter(val);
+    setPage(0);
+  };
+
+  const handleYearFilterChange = (val) => {
+    setYearFilter(val);
+    setPage(0);
+  };
 
   const calculatedNetSalary = Math.max(
     0,
@@ -105,7 +167,7 @@ const PayrollsPage = () => {
         setToast({ message: 'Payroll slip generated successfully!', type: 'success' });
       }
       setIsModalOpen(false);
-      loadData();
+      loadPayrolls();
     } catch (err) {
       setToast({ message: getErrorMessage(err), type: 'error' });
     } finally {
@@ -118,14 +180,14 @@ const PayrollsPage = () => {
     try {
       await payrollService.delete(id);
       setToast({ message: 'Payroll record deleted.', type: 'info' });
-      loadData();
+      loadPayrolls();
     } catch (err) {
       setToast({ message: getErrorMessage(err), type: 'error' });
     }
   };
 
-  if (loading) return <LoadingSpinner text="Fetching payroll records..." />;
-  if (error) return <ErrorState message={error} onRetry={loadData} />;
+  if (loading && payrolls.length === 0) return <LoadingSpinner text="Fetching payroll records..." />;
+  if (error && payrolls.length === 0) return <ErrorState message={error} onRetry={loadPayrolls} />;
 
   return (
     <div className="page-wrapper">
@@ -148,55 +210,114 @@ const PayrollsPage = () => {
       </div>
 
       <div className="table-container">
+        <div className="table-header-bar" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
+          <div className="search-box" style={{ minWidth: '220px', flex: 1 }}>
+            <Search className="search-icon" size={18} />
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Search user name or email..."
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <select
+              className="form-select"
+              style={{ width: '140px' }}
+              value={monthFilter}
+              onChange={(e) => handleMonthFilterChange(e.target.value)}
+            >
+              <option value="">All Months</option>
+              {[
+                'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+                'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER',
+              ].map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+
+            <input
+              type="number"
+              className="form-input"
+              style={{ width: '110px' }}
+              placeholder="Year"
+              value={yearFilter}
+              onChange={(e) => handleYearFilterChange(e.target.value)}
+            />
+          </div>
+        </div>
+
         {payrolls.length === 0 ? (
-          <EmptyState title="No Payroll Records" description="No salary slips have been generated yet." />
+          <EmptyState title="No Payroll Records" description="No salary slips match your search or filter criteria." />
         ) : (
-          <table className="custom-table">
-            <thead>
-              <tr>
-                <th>Slip ID</th>
-                <th>User ID</th>
-                <th>Period</th>
-                <th>Basic Salary</th>
-                <th>Bonus</th>
-                <th>Deductions</th>
-                <th>Net Salary</th>
-                {isAdmin && <th style={{ textAlign: 'right' }}>Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {payrolls.map((p) => {
-                const id = p.payrollId || p.id;
-                return (
-                  <tr key={id}>
-                    <td style={{ fontWeight: 700 }}>#{id}</td>
-                    <td>User #{p.userId}</td>
-                    <td>
-                      <span className="badge badge-info">
-                        {p.month} {p.year}
-                      </span>
-                    </td>
-                    <td>{formatCurrency(p.basicSalary)}</td>
-                    <td style={{ color: '#34d399' }}>+{formatCurrency(p.bonus)}</td>
-                    <td style={{ color: '#f87171' }}>-{formatCurrency(p.deduction)}</td>
-                    <td style={{ fontWeight: 800, color: 'var(--primary)' }}>{formatCurrency(p.netSalary)}</td>
-                    {isAdmin && (
-                      <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
-                          <button className="btn btn-secondary btn-sm" onClick={() => openEditModal(p)}>
-                            <Edit size={15} />
-                          </button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDelete(id)}>
-                            <Trash2 size={15} />
-                          </button>
+          <>
+            <table className="custom-table">
+              <thead>
+                <tr>
+                  <th>Slip ID</th>
+                  <th>Employee Name</th>
+                  <th>Period</th>
+                  <th>Basic Salary</th>
+                  <th>Bonus</th>
+                  <th>Deductions</th>
+                  <th>Net Salary</th>
+                  {isAdmin && <th style={{ textAlign: 'right' }}>Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {payrolls.map((p) => {
+                  const id = p.payrollId || p.id;
+                  return (
+                    <tr key={id}>
+                      <td style={{ fontWeight: 700 }}>#{id}</td>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>
+                          {p.userFirstName ? `${p.userFirstName} ${p.userLastName}` : `User #${p.userId}`}
                         </div>
                       </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      <td>
+                        <span className="badge badge-info">
+                          {p.month} {p.year}
+                        </span>
+                      </td>
+                      <td>{formatCurrency(p.basicSalary)}</td>
+                      <td style={{ color: '#34d399' }}>+{formatCurrency(p.bonus)}</td>
+                      <td style={{ color: '#f87171' }}>-{formatCurrency(p.deduction)}</td>
+                      <td style={{ fontWeight: 800, color: 'var(--primary)' }}>{formatCurrency(p.netSalary)}</td>
+                      {isAdmin && (
+                        <td style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => openEditModal(p)}>
+                              <Edit size={15} />
+                            </button>
+                            <button className="btn btn-danger btn-sm" onClick={() => handleDelete(id)}>
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            <Pagination
+              pageNumber={paginationInfo.pageNumber}
+              pageSize={paginationInfo.pageSize}
+              totalElements={paginationInfo.totalElements}
+              totalPages={paginationInfo.totalPages}
+              first={paginationInfo.first}
+              last={paginationInfo.last}
+              onPageChange={(newPage) => setPage(newPage)}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setPage(0);
+              }}
+            />
+          </>
         )}
       </div>
 

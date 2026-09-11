@@ -2,21 +2,27 @@ package com.hareeshvar.attendance.service.impl;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.hareeshvar.attendance.dto.request.LeaveRequestDTO;
 import com.hareeshvar.attendance.dto.response.LeaveResponseDTO;
+import com.hareeshvar.attendance.dto.response.PageResponse;
 import com.hareeshvar.attendance.entity.Leave;
 import com.hareeshvar.attendance.entity.User;
 import com.hareeshvar.attendance.enums.LeaveStatus;
+import com.hareeshvar.attendance.enums.LeaveType;
 import com.hareeshvar.attendance.enums.RoleName;
 import com.hareeshvar.attendance.exception.BadRequestException;
 import com.hareeshvar.attendance.exception.ResourceNotFoundException;
 import com.hareeshvar.attendance.mapper.LeaveMapper;
 import com.hareeshvar.attendance.repository.LeaveRepository;
 import com.hareeshvar.attendance.repository.UserRepository;
+import com.hareeshvar.attendance.repository.specification.LeaveSpecification;
 import com.hareeshvar.attendance.security.service.CustomUserDetails;
 import com.hareeshvar.attendance.service.LeaveService;
 
@@ -90,6 +96,33 @@ public class LeaveServiceImpl implements LeaveService {
         }
 
         return leaves.stream().map(leaveMapper::toResponse).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<LeaveResponseDTO> getLeavesPaginated(
+            Pageable pageable,
+            String search,
+            LeaveStatus status,
+            LeaveType leaveType,
+            CustomUserDetails userDetails
+    ) {
+        if (userDetails == null) {
+            throw new AccessDeniedException("Authentication required");
+        }
+
+        Specification<Leave> spec = LeaveSpecification.filterLeaves(
+                search,
+                status,
+                leaveType,
+                userDetails.getRole(),
+                userDetails.getDepartmentId(),
+                userDetails.getUserId()
+        );
+
+        Page<Leave> page = leaveRepository.findAll(spec, pageable);
+        Page<LeaveResponseDTO> dtoPage = page.map(leaveMapper::toResponse);
+        return PageResponse.from(dtoPage);
     }
 
     @Override

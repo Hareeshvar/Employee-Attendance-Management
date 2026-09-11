@@ -1,8 +1,8 @@
 import api from './api';
 
 export const payrollService = {
-  getAll: async () => {
-    const response = await api.get('/payrolls');
+  getAll: async (params) => {
+    const response = await api.get('/payrolls', { params });
     return response.data;
   },
   getById: async (id) => {

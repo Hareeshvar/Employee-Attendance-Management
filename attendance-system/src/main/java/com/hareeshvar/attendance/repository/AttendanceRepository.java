@@ -5,11 +5,12 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import com.hareeshvar.attendance.entity.Attendance;
 import com.hareeshvar.attendance.enums.AttendanceStatus;
 
-public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
+public interface AttendanceRepository extends JpaRepository<Attendance, Long>, JpaSpecificationExecutor<Attendance> {
 
     Optional<Attendance> findByUserUserIdAndAttendanceDate(
             Long userId,

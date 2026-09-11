@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Bell, Trash2, CheckCircle2 } from 'lucide-react';
+import { Plus, Search, Trash2, CheckCircle2 } from 'lucide-react';
 import { notificationService } from '../services/notificationService';
 import { userService } from '../services/userService';
 import { useAuth } from '../context/AuthContext';
@@ -7,12 +7,26 @@ import { LoadingSpinner, EmptyState, ErrorState } from '../components/LoadingSpi
 import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
 import Toast from '../components/Toast';
+import Pagination from '../components/Pagination';
 import { getErrorMessage } from '../utils/formatters';
 
 const NotificationsPage = () => {
   const { isAdmin } = useAuth();
   const [notifications, setNotifications] = useState([]);
+  const [paginationInfo, setPaginationInfo] = useState({
+    pageNumber: 0,
+    pageSize: 10,
+    totalElements: 0,
+    totalPages: 1,
+    first: true,
+    last: true,
+  });
+
   const [users, setUsers] = useState([]);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const [search, setSearch] = useState('');
+  const [isReadFilter, setIsReadFilter] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -28,16 +42,47 @@ const NotificationsPage = () => {
     isRead: false,
   });
 
-  const loadData = async () => {
+  useEffect(() => {
+    if (isAdmin) {
+      userService.getAll({ page: 0, size: 1000 })
+        .then((res) => setUsers(Array.isArray(res) ? res : res.content || []))
+        .catch(() => setUsers([]));
+    }
+  }, [isAdmin]);
+
+  const loadNotifications = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [notifData, usersData] = await Promise.all([
-        notificationService.getAll(),
-        isAdmin ? userService.getAll().catch(() => []) : Promise.resolve([]),
-      ]);
-      setNotifications(notifData);
-      setUsers(usersData);
+      const params = {
+        page,
+        size: pageSize,
+        search: search || undefined,
+        isRead: isReadFilter === 'true' ? true : isReadFilter === 'false' ? false : undefined,
+      };
+
+      const res = await notificationService.getAll(params);
+      if (res && res.content !== undefined) {
+        setNotifications(res.content);
+        setPaginationInfo({
+          pageNumber: res.pageNumber,
+          pageSize: res.pageSize,
+          totalElements: res.totalElements,
+          totalPages: res.totalPages,
+          first: res.first,
+          last: res.last,
+        });
+      } else if (Array.isArray(res)) {
+        setNotifications(res);
+        setPaginationInfo({
+          pageNumber: 0,
+          pageSize: res.length,
+          totalElements: res.length,
+          totalPages: 1,
+          first: true,
+          last: true,
+        });
+      }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -46,8 +91,18 @@ const NotificationsPage = () => {
   };
 
   useEffect(() => {
-    loadData();
-  }, [isAdmin]);
+    loadNotifications();
+  }, [page, pageSize, search, isReadFilter]);
+
+  const handleSearchChange = (val) => {
+    setSearch(val);
+    setPage(0);
+  };
+
+  const handleIsReadFilterChange = (val) => {
+    setIsReadFilter(val);
+    setPage(0);
+  };
 
   const openModal = () => {
     setFormData({
@@ -74,7 +129,7 @@ const NotificationsPage = () => {
       await notificationService.create(payload);
       setToast({ message: 'Notification dispatched successfully!', type: 'success' });
       setIsModalOpen(false);
-      loadData();
+      loadNotifications();
     } catch (err) {
       setToast({ message: getErrorMessage(err), type: 'error' });
     } finally {
@@ -93,7 +148,7 @@ const NotificationsPage = () => {
       };
       await notificationService.update(id, payload);
       setToast({ message: 'Notification state updated.', type: 'info' });
-      loadData();
+      loadNotifications();
     } catch (err) {
       setToast({ message: getErrorMessage(err), type: 'error' });
     }
@@ -104,14 +159,14 @@ const NotificationsPage = () => {
     try {
       await notificationService.delete(id);
       setToast({ message: 'Notification deleted.', type: 'info' });
-      loadData();
+      loadNotifications();
     } catch (err) {
       setToast({ message: getErrorMessage(err), type: 'error' });
     }
   };
 
-  if (loading) return <LoadingSpinner text="Fetching system notifications..." />;
-  if (error) return <ErrorState message={error} onRetry={loadData} />;
+  if (loading && notifications.length === 0) return <LoadingSpinner text="Fetching system notifications..." />;
+  if (error && notifications.length === 0) return <ErrorState message={error} onRetry={loadNotifications} />;
 
   return (
     <div className="page-wrapper">
@@ -134,49 +189,91 @@ const NotificationsPage = () => {
       </div>
 
       <div className="table-container">
+        <div className="table-header-bar" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
+          <div className="search-box" style={{ minWidth: '220px', flex: 1 }}>
+            <Search className="search-icon" size={18} />
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Search by title or message content..."
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <select
+              className="form-select"
+              style={{ width: '140px' }}
+              value={isReadFilter}
+              onChange={(e) => handleIsReadFilterChange(e.target.value)}
+            >
+              <option value="">All Statuses</option>
+              <option value="false">Unread Only</option>
+              <option value="true">Read Only</option>
+            </select>
+          </div>
+        </div>
+
         {notifications.length === 0 ? (
-          <EmptyState title="No Notifications" description="There are no notifications in your inbox." />
+          <EmptyState title="No Notifications" description="There are no notifications matching your criteria." />
         ) : (
-          <table className="custom-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Target User</th>
-                <th>Notification Title</th>
-                <th>Message Content</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {notifications.map((n) => {
-                const id = n.notificationId || n.id;
-                return (
-                  <tr key={id}>
-                    <td style={{ fontWeight: 700 }}>#{id}</td>
-                    <td>User #{n.userId}</td>
-                    <td style={{ fontWeight: 600 }}>{n.title}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{n.message}</td>
-                    <td>
-                      <StatusBadge status={n.isRead ? 'Read' : 'Unread'} />
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
-                        <button className="btn btn-secondary btn-sm" onClick={() => handleToggleRead(n)} title="Toggle Read State">
-                          <CheckCircle2 size={15} />
-                        </button>
-                        {isAdmin && (
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDelete(id)}>
-                            <Trash2 size={15} />
+          <>
+            <table className="custom-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Target User</th>
+                  <th>Notification Title</th>
+                  <th>Message Content</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {notifications.map((n) => {
+                  const id = n.notificationId || n.id;
+                  return (
+                    <tr key={id}>
+                      <td style={{ fontWeight: 700 }}>#{id}</td>
+                      <td>User #{n.userId}</td>
+                      <td style={{ fontWeight: 600 }}>{n.title}</td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{n.message}</td>
+                      <td>
+                        <StatusBadge status={n.isRead ? 'Read' : 'Unread'} />
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
+                          <button className="btn btn-secondary btn-sm" onClick={() => handleToggleRead(n)} title="Toggle Read State">
+                            <CheckCircle2 size={15} />
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                          {isAdmin && (
+                            <button className="btn btn-danger btn-sm" onClick={() => handleDelete(id)}>
+                              <Trash2 size={15} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            <Pagination
+              pageNumber={paginationInfo.pageNumber}
+              pageSize={paginationInfo.pageSize}
+              totalElements={paginationInfo.totalElements}
+              totalPages={paginationInfo.totalPages}
+              first={paginationInfo.first}
+              last={paginationInfo.last}
+              onPageChange={(newPage) => setPage(newPage)}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setPage(0);
+              }}
+            />
+          </>
         )}
       </div>
 

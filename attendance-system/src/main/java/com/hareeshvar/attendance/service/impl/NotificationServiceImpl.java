@@ -2,12 +2,16 @@ package com.hareeshvar.attendance.service.impl;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.hareeshvar.attendance.dto.request.NotificationRequestDTO;
 import com.hareeshvar.attendance.dto.response.NotificationResponseDTO;
+import com.hareeshvar.attendance.dto.response.PageResponse;
 import com.hareeshvar.attendance.entity.Notification;
 import com.hareeshvar.attendance.entity.User;
 import com.hareeshvar.attendance.enums.RoleName;
@@ -15,6 +19,7 @@ import com.hareeshvar.attendance.exception.ResourceNotFoundException;
 import com.hareeshvar.attendance.mapper.NotificationMapper;
 import com.hareeshvar.attendance.repository.NotificationRepository;
 import com.hareeshvar.attendance.repository.UserRepository;
+import com.hareeshvar.attendance.repository.specification.NotificationSpecification;
 import com.hareeshvar.attendance.security.service.CustomUserDetails;
 import com.hareeshvar.attendance.service.NotificationService;
 
@@ -55,6 +60,30 @@ public class NotificationServiceImpl implements NotificationService {
 
         return notificationRepository.findByUserUserId(userDetails.getUserId())
                 .stream().map(notificationMapper::toResponse).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<NotificationResponseDTO> getNotificationsPaginated(
+            Pageable pageable,
+            String search,
+            Boolean isRead,
+            CustomUserDetails userDetails
+    ) {
+        if (userDetails == null) {
+            throw new AccessDeniedException("Authentication required");
+        }
+
+        Specification<Notification> spec = NotificationSpecification.filterNotifications(
+                search,
+                isRead,
+                userDetails.getRole(),
+                userDetails.getUserId()
+        );
+
+        Page<Notification> page = notificationRepository.findAll(spec, pageable);
+        Page<NotificationResponseDTO> dtoPage = page.map(notificationMapper::toResponse);
+        return PageResponse.from(dtoPage);
     }
 
     @Override
