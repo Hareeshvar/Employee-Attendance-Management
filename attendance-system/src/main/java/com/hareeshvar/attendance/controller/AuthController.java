@@ -1,5 +1,7 @@
 package com.hareeshvar.attendance.controller;
 
+import java.util.Map;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -17,11 +19,14 @@ import com.hareeshvar.attendance.dto.auth.ChangePasswordRequest;
 import com.hareeshvar.attendance.dto.auth.LoginRequest;
 import com.hareeshvar.attendance.dto.auth.LoginResponse;
 import com.hareeshvar.attendance.entity.User;
+import com.hareeshvar.attendance.enums.AuditAction;
+import com.hareeshvar.attendance.enums.AuditResult;
 import com.hareeshvar.attendance.exception.BadRequestException;
 import com.hareeshvar.attendance.exception.ResourceNotFoundException;
 import com.hareeshvar.attendance.repository.UserRepository;
 import com.hareeshvar.attendance.security.service.CustomUserDetails;
 import com.hareeshvar.attendance.security.service.JwtService;
+import com.hareeshvar.attendance.service.AuditLogService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +42,7 @@ public class AuthController {
     private final JwtService jwtService;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditLogService auditLogService;
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
@@ -53,6 +59,17 @@ public class AuthController {
             log.info("[AUTH DEBUG] Authentication SUCCESSFUL for user: '{}', role: {}", userDetails.getUsername(), userDetails.getRole());
 
             String token = jwtService.generateToken(userDetails);
+
+            auditLogService.logSecurityEvent(
+                    AuditAction.LOGIN_SUCCESS,
+                    userDetails.getUsername(),
+                    userDetails.getRole() != null ? userDetails.getRole().name() : "EMPLOYEE",
+                    "USER",
+                    String.valueOf(userDetails.getUserId()),
+                    "User logged in successfully",
+                    AuditResult.SUCCESS,
+                    Map.of("username", userDetails.getUsername())
+            );
 
             LoginResponse response = LoginResponse.builder()
                     .token(token)
@@ -72,9 +89,29 @@ public class AuthController {
 
         } catch (BadCredentialsException e) {
             log.warn("[AUTH DEBUG] Password verification FAILED for input username/email: '{}'", request.getUsername());
+            auditLogService.logSecurityEvent(
+                    AuditAction.LOGIN_FAILED,
+                    request.getUsername(),
+                    "UNAUTHENTICATED",
+                    "USER",
+                    request.getUsername(),
+                    "Failed login attempt for username/email: " + request.getUsername(),
+                    AuditResult.FAILURE,
+                    Map.of("attemptedUsername", request.getUsername())
+            );
             throw e;
         } catch (Exception e) {
             log.error("[AUTH DEBUG] Authentication EXCEPTION for input username/email: '{}': {}", request.getUsername(), e.getMessage());
+            auditLogService.logSecurityEvent(
+                    AuditAction.LOGIN_FAILED,
+                    request.getUsername(),
+                    "UNAUTHENTICATED",
+                    "USER",
+                    request.getUsername(),
+                    "Authentication exception: " + e.getMessage(),
+                    AuditResult.FAILURE,
+                    Map.of("attemptedUsername", request.getUsername())
+            );
             throw e;
         }
     }
@@ -85,14 +122,13 @@ public class AuthController {
             return ResponseEntity.status(401).build();
         }
 
-        // Re-query database to ensure freshness of role and status
         User user = userRepository.findById(userDetails.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userDetails.getUserId()));
 
         CustomUserDetails freshDetails = CustomUserDetails.create(user);
 
         LoginResponse response = LoginResponse.builder()
-                .token(null) // Token remains unchanged on client
+                .token(null)
                 .userId(freshDetails.getUserId())
                 .username(freshDetails.getUsername())
                 .email(freshDetails.getEmail())
@@ -126,6 +162,14 @@ public class AuthController {
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
+
+        auditLogService.logSuccess(
+                AuditAction.USER_UPDATED,
+                "USER",
+                String.valueOf(user.getUserId()),
+                "User changed password",
+                Map.of("username", user.getUsername())
+        );
 
         return ResponseEntity.ok().build();
     }

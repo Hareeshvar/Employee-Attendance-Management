@@ -19,8 +19,8 @@ import PayrollsPage from './pages/PayrollsPage';
 import ReportsPage from './pages/ReportsPage';
 import RolesPage from './pages/RolesPage';
 import ProfilePage from './pages/ProfilePage';
+import AuditLogsPage from './pages/AuditLogsPage';
 
-// Main Application Layout Shell for Authenticated Workspace
 const Layout = () => {
   return (
     <div className="app-container">
@@ -33,7 +33,6 @@ const Layout = () => {
   );
 };
 
-// Root '/' Route Handler: Public Landing Page for Guests, Dashboard Redirect for Authenticated Users
 const IndexRoute = () => {
   const { isAuthenticated, loading } = useAuth();
 
@@ -44,7 +43,6 @@ const IndexRoute = () => {
   return <LandingPage />;
 };
 
-// '/login' Route Handler: Login Form for Guests, Dashboard Redirect for Authenticated Users
 const LoginRoute = () => {
   const { isAuthenticated, loading } = useAuth();
 
@@ -60,11 +58,9 @@ const App = () => {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* Public Landing & Login Routes */}
           <Route path="/" element={<IndexRoute />} />
           <Route path="/login" element={<LoginRoute />} />
 
-          {/* Authenticated Application Routes inside App Layout */}
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
@@ -73,7 +69,6 @@ const App = () => {
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
 
-              {/* Roles & Permissions Protected Routes */}
               <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'HR', 'MANAGER']} />}>
                 <Route path="/users" element={<UsersPage />} />
               </Route>
@@ -82,6 +77,7 @@ const App = () => {
                 <Route path="/departments" element={<DepartmentsPage />} />
                 <Route path="/designations" element={<DesignationsPage />} />
                 <Route path="/shifts" element={<ShiftsPage />} />
+                <Route path="/audit-logs" element={<AuditLogsPage />} />
               </Route>
 
               <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'HR', 'EMPLOYEE']} />}>
@@ -96,7 +92,6 @@ const App = () => {
                 <Route path="/roles" element={<RolesPage />} />
               </Route>
 
-              {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Route>

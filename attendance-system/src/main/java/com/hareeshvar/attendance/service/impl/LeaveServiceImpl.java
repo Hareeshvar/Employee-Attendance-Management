@@ -1,6 +1,7 @@
 package com.hareeshvar.attendance.service.impl;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -14,6 +15,7 @@ import com.hareeshvar.attendance.dto.response.LeaveResponseDTO;
 import com.hareeshvar.attendance.dto.response.PageResponse;
 import com.hareeshvar.attendance.entity.Leave;
 import com.hareeshvar.attendance.entity.User;
+import com.hareeshvar.attendance.enums.AuditAction;
 import com.hareeshvar.attendance.enums.LeaveStatus;
 import com.hareeshvar.attendance.enums.LeaveType;
 import com.hareeshvar.attendance.enums.RoleName;
@@ -24,6 +26,7 @@ import com.hareeshvar.attendance.repository.LeaveRepository;
 import com.hareeshvar.attendance.repository.UserRepository;
 import com.hareeshvar.attendance.repository.specification.LeaveSpecification;
 import com.hareeshvar.attendance.security.service.CustomUserDetails;
+import com.hareeshvar.attendance.service.AuditLogService;
 import com.hareeshvar.attendance.service.LeaveService;
 
 import lombok.RequiredArgsConstructor;
@@ -36,6 +39,7 @@ public class LeaveServiceImpl implements LeaveService {
     private final LeaveRepository leaveRepository;
     private final UserRepository userRepository;
     private final LeaveMapper leaveMapper;
+    private final AuditLogService auditLogService;
 
     @Override
     public LeaveResponseDTO applyLeave(LeaveRequestDTO request, CustomUserDetails userDetails) {
@@ -50,7 +54,6 @@ public class LeaveServiceImpl implements LeaveService {
 
         Long targetUserId = request.getUserId();
         if (userDetails.getRole() != RoleName.ADMIN && userDetails.getRole() != RoleName.HR) {
-            // Force user identity to authenticated principal to prevent IDOR
             targetUserId = userDetails.getUserId();
         }
 
@@ -73,6 +76,19 @@ public class LeaveServiceImpl implements LeaveService {
         leave.syncLeaveTypeId();
 
         Leave saved = leaveRepository.save(leave);
+
+        auditLogService.logSuccess(
+                AuditAction.LEAVE_CREATED,
+                "LEAVE_REQUEST",
+                String.valueOf(saved.getLeaveId()),
+                "Applied for leave: " + saved.getLeaveType() + " from " + saved.getStartDate() + " to " + saved.getEndDate(),
+                Map.of(
+                        "leaveType", saved.getLeaveType() != null ? saved.getLeaveType().name() : "UNKNOWN",
+                        "startDate", saved.getStartDate() != null ? saved.getStartDate().toString() : "",
+                        "endDate", saved.getEndDate() != null ? saved.getEndDate().toString() : ""
+                )
+        );
+
         return leaveMapper.toResponse(saved);
     }
 
@@ -148,7 +164,6 @@ public class LeaveServiceImpl implements LeaveService {
             return leaveMapper.toResponse(leave);
         }
 
-        // EMPLOYEE ownership check
         if (!leave.getUser().getUserId().equals(userDetails.getUserId())) {
             throw new AccessDeniedException("Access denied: You can only view your own leave requests");
         }
@@ -179,6 +194,15 @@ public class LeaveServiceImpl implements LeaveService {
 
         leave.setStatus(LeaveStatus.APPROVED);
         Leave saved = leaveRepository.save(leave);
+
+        auditLogService.logSuccess(
+                AuditAction.LEAVE_APPROVED,
+                "LEAVE_REQUEST",
+                String.valueOf(saved.getLeaveId()),
+                "Approved leave request #" + saved.getLeaveId() + " for employee '" + leave.getUser().getUsername() + "'",
+                Map.of("oldStatus", "PENDING", "newStatus", "APPROVED", "applicantUsername", leave.getUser().getUsername())
+        );
+
         return leaveMapper.toResponse(saved);
     }
 
@@ -205,6 +229,15 @@ public class LeaveServiceImpl implements LeaveService {
 
         leave.setStatus(LeaveStatus.REJECTED);
         Leave saved = leaveRepository.save(leave);
+
+        auditLogService.logSuccess(
+                AuditAction.LEAVE_REJECTED,
+                "LEAVE_REQUEST",
+                String.valueOf(saved.getLeaveId()),
+                "Rejected leave request #" + saved.getLeaveId() + " for employee '" + leave.getUser().getUsername() + "'",
+                Map.of("oldStatus", "PENDING", "newStatus", "REJECTED", "applicantUsername", leave.getUser().getUsername())
+        );
+
         return leaveMapper.toResponse(saved);
     }
 
@@ -228,5 +261,13 @@ public class LeaveServiceImpl implements LeaveService {
         }
 
         leaveRepository.delete(leave);
+
+        auditLogService.logSuccess(
+                AuditAction.LEAVE_CANCELLED,
+                "LEAVE_REQUEST",
+                String.valueOf(leaveId),
+                "Cancelled leave request #" + leaveId + " for employee '" + leave.getUser().getUsername() + "'",
+                Map.of("leaveId", leaveId, "applicantUsername", leave.getUser().getUsername())
+        );
     }
 }

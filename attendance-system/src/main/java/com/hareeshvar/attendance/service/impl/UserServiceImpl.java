@@ -1,6 +1,7 @@
 package com.hareeshvar.attendance.service.impl;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -18,6 +19,7 @@ import com.hareeshvar.attendance.entity.Department;
 import com.hareeshvar.attendance.entity.Designation;
 import com.hareeshvar.attendance.entity.Role;
 import com.hareeshvar.attendance.entity.User;
+import com.hareeshvar.attendance.enums.AuditAction;
 import com.hareeshvar.attendance.enums.RoleName;
 import com.hareeshvar.attendance.enums.UserStatus;
 import com.hareeshvar.attendance.exception.ResourceAlreadyExistsException;
@@ -29,6 +31,7 @@ import com.hareeshvar.attendance.repository.RoleRepository;
 import com.hareeshvar.attendance.repository.UserRepository;
 import com.hareeshvar.attendance.repository.specification.UserSpecification;
 import com.hareeshvar.attendance.security.service.CustomUserDetails;
+import com.hareeshvar.attendance.service.AuditLogService;
 import com.hareeshvar.attendance.service.UserService;
 
 import lombok.RequiredArgsConstructor;
@@ -44,6 +47,7 @@ public class UserServiceImpl implements UserService {
     private final DesignationRepository designationRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final AuditLogService auditLogService;
 
     @Override
     public UserResponseDTO createUser(UserRequestDTO request, CustomUserDetails creator) {
@@ -58,7 +62,6 @@ public class UserServiceImpl implements UserService {
         Role role = roleRepository.findById(request.getRoleId())
                 .orElseThrow(() -> new ResourceNotFoundException("Role", "id", request.getRoleId()));
 
-        // HR cannot create ADMIN accounts
         if (role.getRoleName() == RoleName.ADMIN && (creator == null || creator.getRole() != RoleName.ADMIN)) {
             throw new AccessDeniedException("Access denied: HR cannot create ADMIN accounts");
         }
@@ -76,6 +79,15 @@ public class UserServiceImpl implements UserService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
 
         User savedUser = userRepository.save(user);
+
+        auditLogService.logSuccess(
+                AuditAction.USER_CREATED,
+                "USER",
+                String.valueOf(savedUser.getUserId()),
+                "Created user '" + savedUser.getUsername() + "' with role " + savedUser.getRole().getRoleName(),
+                Map.of("username", savedUser.getUsername(), "role", savedUser.getRole().getRoleName().name())
+        );
+
         return userMapper.toResponse(savedUser);
     }
 
@@ -95,7 +107,6 @@ public class UserServiceImpl implements UserService {
             Long deptId = userDetails.getDepartmentId();
             list = (deptId != null) ? userRepository.findByDepartmentDepartmentId(deptId) : List.of();
         } else {
-            // Employee can only view self
             User self = userRepository.findById(userDetails.getUserId())
                     .orElseThrow(() -> new ResourceNotFoundException("User", "id", userDetails.getUserId()));
             list = List.of(self);
@@ -156,7 +167,6 @@ public class UserServiceImpl implements UserService {
             return userMapper.toResponse(user);
         }
 
-        // EMPLOYEE ownership check
         if (!user.getUserId().equals(userDetails.getUserId())) {
             throw new AccessDeniedException("Access denied: You can only view your own user profile");
         }
@@ -169,11 +179,10 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
-        Role role = roleRepository.findById(request.getRoleId())
+        Role newRole = roleRepository.findById(request.getRoleId())
                 .orElseThrow(() -> new ResourceNotFoundException("Role", "id", request.getRoleId()));
 
-        // HR cannot elevate to or modify ADMIN accounts unless updater is ADMIN
-        if ((role.getRoleName() == RoleName.ADMIN || user.getRole().getRoleName() == RoleName.ADMIN) &&
+        if ((newRole.getRoleName() == RoleName.ADMIN || user.getRole().getRoleName() == RoleName.ADMIN) &&
                 (updater == null || updater.getRole() != RoleName.ADMIN)) {
             throw new AccessDeniedException("Access denied: HR cannot create, elevate, or modify ADMIN accounts");
         }
@@ -184,13 +193,18 @@ public class UserServiceImpl implements UserService {
         Designation designation = designationRepository.findById(request.getDesignationId())
                 .orElseThrow(() -> new ResourceNotFoundException("Designation", "id", request.getDesignationId()));
 
+        RoleName oldRole = user.getRole().getRoleName();
+        RoleName newRoleName = newRole.getRoleName();
+        UserStatus oldStatus = user.getStatus();
+        UserStatus newStatus = request.getStatus();
+
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
         user.setGender(request.getGender());
         user.setStatus(request.getStatus());
-        user.setRole(role);
+        user.setRole(newRole);
         user.setDepartment(department);
         user.setDesignation(designation);
 
@@ -199,6 +213,33 @@ public class UserServiceImpl implements UserService {
         }
 
         User updatedUser = userRepository.save(user);
+
+        if (!oldRole.equals(newRoleName)) {
+            auditLogService.logSuccess(
+                    AuditAction.ROLE_CHANGED,
+                    "USER",
+                    String.valueOf(updatedUser.getUserId()),
+                    "Changed role for user '" + updatedUser.getUsername() + "' from " + oldRole + " to " + newRoleName,
+                    Map.of("oldRole", oldRole.name(), "newRole", newRoleName.name())
+            );
+        } else if (!oldStatus.equals(newStatus)) {
+            auditLogService.logSuccess(
+                    AuditAction.USER_STATUS_CHANGED,
+                    "USER",
+                    String.valueOf(updatedUser.getUserId()),
+                    "Changed status for user '" + updatedUser.getUsername() + "' from " + oldStatus + " to " + newStatus,
+                    Map.of("oldStatus", oldStatus.name(), "newStatus", newStatus.name())
+            );
+        } else {
+            auditLogService.logSuccess(
+                    AuditAction.USER_UPDATED,
+                    "USER",
+                    String.valueOf(updatedUser.getUserId()),
+                    "Updated user details for '" + updatedUser.getUsername() + "'",
+                    Map.of("username", updatedUser.getUsername())
+            );
+        }
+
         return userMapper.toResponse(updatedUser);
     }
 
@@ -212,5 +253,13 @@ public class UserServiceImpl implements UserService {
         }
 
         userRepository.delete(user);
+
+        auditLogService.logSuccess(
+                AuditAction.USER_DELETED,
+                "USER",
+                String.valueOf(userId),
+                "Deleted user '" + user.getUsername() + "'",
+                Map.of("deletedUsername", user.getUsername())
+        );
     }
 }

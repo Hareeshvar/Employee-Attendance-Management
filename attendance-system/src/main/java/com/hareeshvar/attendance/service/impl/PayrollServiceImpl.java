@@ -1,6 +1,7 @@
 package com.hareeshvar.attendance.service.impl;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -14,6 +15,7 @@ import com.hareeshvar.attendance.dto.response.PageResponse;
 import com.hareeshvar.attendance.dto.response.PayrollResponseDTO;
 import com.hareeshvar.attendance.entity.Payroll;
 import com.hareeshvar.attendance.entity.User;
+import com.hareeshvar.attendance.enums.AuditAction;
 import com.hareeshvar.attendance.enums.RoleName;
 import com.hareeshvar.attendance.exception.ResourceNotFoundException;
 import com.hareeshvar.attendance.mapper.PayrollMapper;
@@ -21,6 +23,7 @@ import com.hareeshvar.attendance.repository.PayrollRepository;
 import com.hareeshvar.attendance.repository.UserRepository;
 import com.hareeshvar.attendance.repository.specification.PayrollSpecification;
 import com.hareeshvar.attendance.security.service.CustomUserDetails;
+import com.hareeshvar.attendance.service.AuditLogService;
 import com.hareeshvar.attendance.service.PayrollService;
 
 import lombok.RequiredArgsConstructor;
@@ -33,6 +36,7 @@ public class PayrollServiceImpl implements PayrollService {
     private final PayrollRepository payrollRepository;
     private final UserRepository userRepository;
     private final PayrollMapper payrollMapper;
+    private final AuditLogService auditLogService;
 
     @Override
     public PayrollResponseDTO createPayroll(PayrollRequestDTO request) {
@@ -43,6 +47,15 @@ public class PayrollServiceImpl implements PayrollService {
         payroll.setUser(user);
 
         Payroll savedPayroll = payrollRepository.save(payroll);
+
+        auditLogService.logSuccess(
+                AuditAction.PAYROLL_CREATED,
+                "PAYROLL",
+                String.valueOf(savedPayroll.getPayrollId()),
+                "Created payroll record for user '" + user.getUsername() + "' (" + savedPayroll.getMonth() + " " + savedPayroll.getYear() + ")",
+                Map.of("month", savedPayroll.getMonth(), "year", savedPayroll.getYear(), "username", user.getUsername())
+        );
+
         return payrollMapper.toResponse(savedPayroll);
     }
 
@@ -63,7 +76,6 @@ public class PayrollServiceImpl implements PayrollService {
                     .stream().map(payrollMapper::toResponse).toList();
         }
 
-        // MANAGER should not access global payroll
         throw new AccessDeniedException("Access denied: Managers do not have access to global payroll data");
     }
 
@@ -140,6 +152,15 @@ public class PayrollServiceImpl implements PayrollService {
         payroll.setNetSalary(request.getNetSalary());
 
         Payroll updatedPayroll = payrollRepository.save(payroll);
+
+        auditLogService.logSuccess(
+                AuditAction.PAYROLL_UPDATED,
+                "PAYROLL",
+                String.valueOf(updatedPayroll.getPayrollId()),
+                "Updated payroll record for user '" + user.getUsername() + "' (" + updatedPayroll.getMonth() + " " + updatedPayroll.getYear() + ")",
+                Map.of("month", updatedPayroll.getMonth(), "year", updatedPayroll.getYear(), "username", user.getUsername())
+        );
+
         return payrollMapper.toResponse(updatedPayroll);
     }
 
@@ -148,5 +169,13 @@ public class PayrollServiceImpl implements PayrollService {
         Payroll payroll = payrollRepository.findById(payrollId)
                 .orElseThrow(() -> new ResourceNotFoundException("Payroll", "id", payrollId));
         payrollRepository.delete(payroll);
+
+        auditLogService.logSuccess(
+                AuditAction.PAYROLL_DELETED,
+                "PAYROLL",
+                String.valueOf(payrollId),
+                "Deleted payroll record #" + payrollId,
+                Map.of("payrollId", payrollId)
+        );
     }
 }

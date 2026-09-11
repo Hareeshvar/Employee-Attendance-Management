@@ -12,7 +12,8 @@ import {
   FileText,
   Shield,
   Clock3,
-  UserCheck
+  UserCheck,
+  Activity
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -33,6 +34,7 @@ const Sidebar = () => {
           { name: 'Leaves', path: '/leaves', icon: CalendarDays },
           { name: 'Payroll', path: '/payrolls', icon: DollarSign },
           { name: 'Reports', path: '/reports', icon: FileText },
+          { name: 'Audit Logs', path: '/audit-logs', icon: Activity },
           { name: 'Roles', path: '/roles', icon: Shield },
           { name: 'Notifications', path: '/notifications', icon: Bell },
         ];
@@ -48,6 +50,7 @@ const Sidebar = () => {
           { name: 'Leave Requests', path: '/leaves', icon: CalendarDays },
           { name: 'Payroll', path: '/payrolls', icon: DollarSign },
           { name: 'HR Reports', path: '/reports', icon: FileText },
+          { name: 'Audit Logs', path: '/audit-logs', icon: Activity },
           { name: 'Notifications', path: '/notifications', icon: Bell },
         ];
 
@@ -102,7 +105,6 @@ const Sidebar = () => {
         })}
       </nav>
 
-      {/* User Profile Widget Footer */}
       <div
         style={{
           padding: '1rem',

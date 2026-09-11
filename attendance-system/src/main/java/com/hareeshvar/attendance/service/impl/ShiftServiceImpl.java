@@ -1,6 +1,7 @@
 package com.hareeshvar.attendance.service.impl;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -8,10 +9,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.hareeshvar.attendance.dto.request.ShiftRequestDTO;
 import com.hareeshvar.attendance.dto.response.ShiftResponseDTO;
 import com.hareeshvar.attendance.entity.Shift;
+import com.hareeshvar.attendance.enums.AuditAction;
 import com.hareeshvar.attendance.exception.ResourceAlreadyExistsException;
 import com.hareeshvar.attendance.exception.ResourceNotFoundException;
 import com.hareeshvar.attendance.mapper.ShiftMapper;
 import com.hareeshvar.attendance.repository.ShiftRepository;
+import com.hareeshvar.attendance.service.AuditLogService;
 import com.hareeshvar.attendance.service.ShiftService;
 
 import lombok.RequiredArgsConstructor;
@@ -23,6 +26,7 @@ public class ShiftServiceImpl implements ShiftService {
 
     private final ShiftRepository shiftRepository;
     private final ShiftMapper shiftMapper;
+    private final AuditLogService auditLogService;
 
     @Override
     public ShiftResponseDTO createShift(ShiftRequestDTO request) {
@@ -32,9 +36,17 @@ public class ShiftServiceImpl implements ShiftService {
         }
 
         Shift shift = shiftMapper.toEntity(request);
+        Shift saved = shiftRepository.save(shift);
 
-        return shiftMapper.toResponse(
-                shiftRepository.save(shift));
+        auditLogService.logSuccess(
+                AuditAction.SHIFT_CREATED,
+                "SHIFT",
+                String.valueOf(saved.getShiftId()),
+                "Created shift '" + saved.getShiftName() + "'",
+                Map.of("shiftName", saved.getShiftName())
+        );
+
+        return shiftMapper.toResponse(saved);
     }
 
     @Override
@@ -71,8 +83,17 @@ public class ShiftServiceImpl implements ShiftService {
         shift.setWorkingHours(request.getWorkingHours());
         shift.setDescription(request.getDescription());
 
-        return shiftMapper.toResponse(
-                shiftRepository.save(shift));
+        Shift updated = shiftRepository.save(shift);
+
+        auditLogService.logSuccess(
+                AuditAction.SHIFT_UPDATED,
+                "SHIFT",
+                String.valueOf(updated.getShiftId()),
+                "Updated shift '" + updated.getShiftName() + "'",
+                Map.of("shiftName", updated.getShiftName())
+        );
+
+        return shiftMapper.toResponse(updated);
     }
 
     @Override
@@ -83,5 +104,13 @@ public class ShiftServiceImpl implements ShiftService {
                         new ResourceNotFoundException("Shift not found"));
 
         shiftRepository.delete(shift);
+
+        auditLogService.logSuccess(
+                AuditAction.SHIFT_DELETED,
+                "SHIFT",
+                String.valueOf(id),
+                "Deleted shift '" + shift.getShiftName() + "'",
+                Map.of("shiftName", shift.getShiftName())
+        );
     }
 }

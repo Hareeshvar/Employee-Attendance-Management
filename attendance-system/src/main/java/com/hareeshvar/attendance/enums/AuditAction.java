@@ -1,0 +1,52 @@
+package com.hareeshvar.attendance.enums;
+
+public enum AuditAction {
+    // User actions
+    USER_CREATED,
+    USER_UPDATED,
+    USER_DELETED,
+    ROLE_CHANGED,
+    USER_STATUS_CHANGED,
+
+    // Department actions
+    DEPARTMENT_CREATED,
+    DEPARTMENT_UPDATED,
+    DEPARTMENT_DELETED,
+
+    // Designation actions
+    DESIGNATION_CREATED,
+    DESIGNATION_UPDATED,
+    DESIGNATION_DELETED,
+
+    // Shift actions
+    SHIFT_CREATED,
+    SHIFT_UPDATED,
+    SHIFT_DELETED,
+    SHIFT_ASSIGNED,
+
+    // Attendance actions
+    ATTENDANCE_CHECK_IN,
+    ATTENDANCE_CHECK_OUT,
+    ATTENDANCE_UPDATED,
+    ATTENDANCE_DELETED,
+
+    // Leave actions
+    LEAVE_CREATED,
+    LEAVE_UPDATED,
+    LEAVE_CANCELLED,
+    LEAVE_APPROVED,
+    LEAVE_REJECTED,
+
+    // Payroll actions
+    PAYROLL_CREATED,
+    PAYROLL_UPDATED,
+    PAYROLL_DELETED,
+
+    // Report actions
+    REPORT_GENERATED,
+
+    // Authentication & Security actions
+    LOGIN_SUCCESS,
+    LOGIN_FAILED,
+    ACCESS_DENIED
+}

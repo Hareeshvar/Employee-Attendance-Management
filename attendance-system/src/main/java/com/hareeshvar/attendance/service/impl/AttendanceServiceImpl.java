@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,6 +20,7 @@ import com.hareeshvar.attendance.entity.Attendance;
 import com.hareeshvar.attendance.entity.Department;
 import com.hareeshvar.attendance.entity.User;
 import com.hareeshvar.attendance.enums.AttendanceStatus;
+import com.hareeshvar.attendance.enums.AuditAction;
 import com.hareeshvar.attendance.enums.RoleName;
 import com.hareeshvar.attendance.exception.BadRequestException;
 import com.hareeshvar.attendance.exception.ResourceNotFoundException;
@@ -29,6 +31,7 @@ import com.hareeshvar.attendance.repository.UserRepository;
 import com.hareeshvar.attendance.repository.specification.AttendanceSpecification;
 import com.hareeshvar.attendance.security.service.CustomUserDetails;
 import com.hareeshvar.attendance.service.AttendanceService;
+import com.hareeshvar.attendance.service.AuditLogService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -40,6 +43,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     private final AttendanceMapper attendanceMapper;
     private final UserRepository userRepository;
     private final DepartmentRepository departmentRepository;
+    private final AuditLogService auditLogService;
 
     @Override
     @Transactional
@@ -55,6 +59,15 @@ public class AttendanceServiceImpl implements AttendanceService {
         attendance.setDepartment(department);
 
         Attendance savedAttendance = attendanceRepository.save(attendance);
+
+        auditLogService.logSuccess(
+                AuditAction.ATTENDANCE_CHECK_IN,
+                "ATTENDANCE",
+                String.valueOf(savedAttendance.getAttendanceId()),
+                "Manual attendance created for user '" + user.getUsername() + "'",
+                Map.of("userId", user.getUserId(), "status", savedAttendance.getStatus().name())
+        );
+
         return attendanceMapper.toResponse(savedAttendance);
     }
 
@@ -164,7 +177,6 @@ public class AttendanceServiceImpl implements AttendanceService {
             return attendanceMapper.toResponse(attendance);
         }
 
-        // EMPLOYEE ownership check
         if (!attendance.getUser().getUserId().equals(userDetails.getUserId())) {
             throw new AccessDeniedException("Access denied: You can only view your own attendance records");
         }
@@ -193,6 +205,15 @@ public class AttendanceServiceImpl implements AttendanceService {
         attendance.setStatus(request.getStatus());
 
         Attendance updatedAttendance = attendanceRepository.save(attendance);
+
+        auditLogService.logSuccess(
+                AuditAction.ATTENDANCE_UPDATED,
+                "ATTENDANCE",
+                String.valueOf(updatedAttendance.getAttendanceId()),
+                "Updated attendance record #" + updatedAttendance.getAttendanceId() + " for user '" + user.getUsername() + "'",
+                Map.of("attendanceId", updatedAttendance.getAttendanceId(), "status", updatedAttendance.getStatus().name())
+        );
+
         return attendanceMapper.toResponse(updatedAttendance);
     }
 
@@ -202,6 +223,14 @@ public class AttendanceServiceImpl implements AttendanceService {
         Attendance attendance = attendanceRepository.findById(attendanceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Attendance", "id", attendanceId));
         attendanceRepository.delete(attendance);
+
+        auditLogService.logSuccess(
+                AuditAction.ATTENDANCE_DELETED,
+                "ATTENDANCE",
+                String.valueOf(attendanceId),
+                "Deleted attendance record #" + attendanceId,
+                Map.of("attendanceId", attendanceId)
+        );
     }
 
     @Override
@@ -225,6 +254,15 @@ public class AttendanceServiceImpl implements AttendanceService {
         attendance.setStatus(AttendanceStatus.PRESENT);
 
         Attendance saved = attendanceRepository.save(attendance);
+
+        auditLogService.logSuccess(
+                AuditAction.ATTENDANCE_CHECK_IN,
+                "ATTENDANCE",
+                String.valueOf(saved.getAttendanceId()),
+                "Employee '" + user.getUsername() + "' checked in",
+                Map.of("userId", user.getUserId(), "checkInTime", saved.getCheckInTime().toString())
+        );
+
         return attendanceMapper.toResponse(saved);
     }
 
@@ -246,6 +284,15 @@ public class AttendanceServiceImpl implements AttendanceService {
         attendance.setWorkingHours(hours);
 
         Attendance updated = attendanceRepository.save(attendance);
+
+        auditLogService.logSuccess(
+                AuditAction.ATTENDANCE_CHECK_OUT,
+                "ATTENDANCE",
+                String.valueOf(updated.getAttendanceId()),
+                "Employee '" + updated.getUser().getUsername() + "' checked out",
+                Map.of("userId", updated.getUser().getUserId(), "workingHours", updated.getWorkingHours())
+        );
+
         return attendanceMapper.toResponse(updated);
     }
 
@@ -258,7 +305,6 @@ public class AttendanceServiceImpl implements AttendanceService {
 
         Long userIdToUse = (targetUserId != null) ? targetUserId : userDetails.getUserId();
 
-        // Enforce ownership unless user is ADMIN or HR
         if (userDetails.getRole() != RoleName.ADMIN && userDetails.getRole() != RoleName.HR) {
             if (!userDetails.getUserId().equals(userIdToUse)) {
                 throw new AccessDeniedException("Access denied: You can only check in for yourself");
@@ -277,7 +323,6 @@ public class AttendanceServiceImpl implements AttendanceService {
 
         Long userIdToUse = (targetUserId != null) ? targetUserId : userDetails.getUserId();
 
-        // Enforce ownership unless user is ADMIN or HR
         if (userDetails.getRole() != RoleName.ADMIN && userDetails.getRole() != RoleName.HR) {
             if (!userDetails.getUserId().equals(userIdToUse)) {
                 throw new AccessDeniedException("Access denied: You can only check out for yourself");

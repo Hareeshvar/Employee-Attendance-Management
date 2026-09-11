@@ -1,6 +1,7 @@
 package com.hareeshvar.attendance.service.impl;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,12 +14,14 @@ import com.hareeshvar.attendance.dto.request.ReportRequestDTO;
 import com.hareeshvar.attendance.dto.response.PageResponse;
 import com.hareeshvar.attendance.dto.response.ReportResponseDTO;
 import com.hareeshvar.attendance.entity.Report;
+import com.hareeshvar.attendance.enums.AuditAction;
 import com.hareeshvar.attendance.enums.RoleName;
 import com.hareeshvar.attendance.exception.ResourceNotFoundException;
 import com.hareeshvar.attendance.mapper.ReportMapper;
 import com.hareeshvar.attendance.repository.ReportRepository;
 import com.hareeshvar.attendance.repository.specification.ReportSpecification;
 import com.hareeshvar.attendance.security.service.CustomUserDetails;
+import com.hareeshvar.attendance.service.AuditLogService;
 import com.hareeshvar.attendance.service.ReportService;
 
 import lombok.RequiredArgsConstructor;
@@ -30,6 +33,7 @@ public class ReportServiceImpl implements ReportService {
 
     private final ReportRepository reportRepository;
     private final ReportMapper reportMapper;
+    private final AuditLogService auditLogService;
 
     @Override
     public ReportResponseDTO createReport(ReportRequestDTO request) {
@@ -38,6 +42,15 @@ public class ReportServiceImpl implements ReportService {
             report.setGeneratedDate(request.getGeneratedDate());
         }
         Report savedReport = reportRepository.save(report);
+
+        auditLogService.logSuccess(
+                AuditAction.REPORT_GENERATED,
+                "REPORT",
+                String.valueOf(savedReport.getReportId()),
+                "Generated report '" + savedReport.getReportName() + "' (" + savedReport.getReportType() + ")",
+                Map.of("reportName", savedReport.getReportName(), "reportType", savedReport.getReportType() != null ? savedReport.getReportType() : "GENERAL")
+        );
+
         return reportMapper.toResponse(savedReport);
     }
 
@@ -69,7 +82,6 @@ public class ReportServiceImpl implements ReportService {
                     .toList();
         }
 
-        // EMPLOYEE scope
         return reports.stream()
                 .filter(r -> r.getReportType() != null && r.getReportType().equalsIgnoreCase("PERSONAL"))
                 .map(reportMapper::toResponse)

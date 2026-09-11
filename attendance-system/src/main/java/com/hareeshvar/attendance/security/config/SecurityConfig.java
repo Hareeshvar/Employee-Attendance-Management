@@ -136,6 +136,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/notifications", "/api/v1/notifications/**").hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")
 
                         // =========================
+                        // AUDIT LOGS (ADMIN, HR)
+                        // =========================
+                        .requestMatchers("/api/v1/audit-logs", "/api/v1/audit-logs/**").hasAnyRole("ADMIN", "HR")
+
+                        // =========================
                         // EVERYTHING ELSE
                         // =========================
                         .anyRequest().authenticated()
