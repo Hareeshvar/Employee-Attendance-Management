@@ -6,6 +6,19 @@ export const authService = {
     return response.data;
   },
 
+  refresh: async () => {
+    const response = await api.post('/auth/refresh');
+    return response.data;
+  },
+
+  logout: async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // Ignore network errors during logout
+    }
+  },
+
   getCurrentUser: async () => {
     const response = await api.get('/auth/me');
     return response.data;

@@ -21,7 +21,7 @@ public class JwtService {
     @Value("${jwt.secret}")
     private String secret;
 
-    @Value("${jwt.expiration}")
+    @Value("${app.jwt.access-token-expiration-ms:900000}") // Default: 15 minutes
     private long jwtExpiration;
 
     private SecretKey getSigningKey() {
@@ -29,28 +29,29 @@ public class JwtService {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public String generateToken(CustomUserDetails userDetails) {
+    public String generateAccessToken(CustomUserDetails userDetails) {
         Map<String, Object> extraClaims = new HashMap<>();
         extraClaims.put("userId", userDetails.getUserId());
         extraClaims.put("role", userDetails.getRole().name());
         extraClaims.put("email", userDetails.getEmail());
+        extraClaims.put("type", "ACCESS");
         if (userDetails.getDepartmentId() != null) {
             extraClaims.put("departmentId", userDetails.getDepartmentId());
         }
 
-        return generateToken(extraClaims, userDetails.getUsername());
+        return generateToken(extraClaims, userDetails.getUsername(), jwtExpiration);
     }
 
-    public String generateToken(String username) {
-        return generateToken(new HashMap<>(), username);
+    public String generateToken(CustomUserDetails userDetails) {
+        return generateAccessToken(userDetails);
     }
 
-    public String generateToken(Map<String, Object> extraClaims, String username) {
+    public String generateToken(Map<String, Object> extraClaims, String username, long expirationMs) {
         return Jwts.builder()
                 .setClaims(extraClaims)
                 .setSubject(username)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + jwtExpiration))
+                .setExpiration(new Date(System.currentTimeMillis() + expirationMs))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
@@ -73,10 +74,19 @@ public class JwtService {
         return (String) claims.get("role");
     }
 
+    public String extractTokenType(String token) {
+        Claims claims = extractClaims(token);
+        return (String) claims.get("type");
+    }
+
     public boolean isTokenValid(String token, String username) {
         try {
             final String tokenUsername = extractUsername(token);
-            return (tokenUsername != null && tokenUsername.equals(username) && !isTokenExpired(token));
+            final String tokenType = extractTokenType(token);
+            return (tokenUsername != null &&
+                    tokenUsername.equals(username) &&
+                    "ACCESS".equals(tokenType) &&
+                    !isTokenExpired(token));
         } catch (Exception e) {
             return false;
         }

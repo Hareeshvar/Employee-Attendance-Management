@@ -2,6 +2,8 @@ package com.hareeshvar.attendance.controller;
 
 import java.util.Map;
 
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -9,6 +11,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,7 +30,9 @@ import com.hareeshvar.attendance.repository.UserRepository;
 import com.hareeshvar.attendance.security.service.CustomUserDetails;
 import com.hareeshvar.attendance.security.service.JwtService;
 import com.hareeshvar.attendance.service.AuditLogService;
+import com.hareeshvar.attendance.service.RefreshTokenService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,10 +48,13 @@ public class AuthController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
+    private final RefreshTokenService refreshTokenService;
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-
+    public ResponseEntity<LoginResponse> login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest servletRequest
+    ) {
         log.info("[AUTH DEBUG] Login request received for username/email: '{}'", request.getUsername());
 
         try {
@@ -58,7 +66,16 @@ public class AuthController {
             CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
             log.info("[AUTH DEBUG] Authentication SUCCESSFUL for user: '{}', role: {}", userDetails.getUsername(), userDetails.getRole());
 
-            String token = jwtService.generateToken(userDetails);
+            User user = userRepository.findById(userDetails.getUserId())
+                    .orElseThrow(() -> new ResourceNotFoundException("User", "id", userDetails.getUserId()));
+
+            String accessToken = jwtService.generateAccessToken(userDetails);
+
+            String ipAddress = servletRequest.getRemoteAddr();
+            String userAgent = servletRequest.getHeader("User-Agent");
+            RefreshTokenService.TokenResult refreshResult = refreshTokenService.createRefreshToken(user, ipAddress, userAgent);
+
+            ResponseCookie refreshCookie = refreshTokenService.createRefreshTokenCookie(refreshResult.rawToken());
 
             auditLogService.logSecurityEvent(
                     AuditAction.LOGIN_SUCCESS,
@@ -72,7 +89,7 @@ public class AuthController {
             );
 
             LoginResponse response = LoginResponse.builder()
-                    .token(token)
+                    .token(accessToken)
                     .userId(userDetails.getUserId())
                     .username(userDetails.getUsername())
                     .email(userDetails.getEmail())
@@ -85,7 +102,9 @@ public class AuthController {
                     .permissions(userDetails.getPermissions())
                     .build();
 
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                    .body(response);
 
         } catch (BadCredentialsException e) {
             log.warn("[AUTH DEBUG] Password verification FAILED for input username/email: '{}'", request.getUsername());
@@ -114,6 +133,87 @@ public class AuthController {
             );
             throw e;
         }
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<LoginResponse> refresh(
+            @CookieValue(name = "refreshToken", required = false) String refreshTokenCookie,
+            HttpServletRequest servletRequest
+    ) {
+        if (refreshTokenCookie == null || refreshTokenCookie.isBlank()) {
+            throw new BadCredentialsException("Refresh token cookie is missing");
+        }
+
+        String ipAddress = servletRequest.getRemoteAddr();
+        String userAgent = servletRequest.getHeader("User-Agent");
+
+        RefreshTokenService.TokenResult rotatedResult = refreshTokenService.rotateRefreshToken(
+                refreshTokenCookie, ipAddress, userAgent
+        );
+
+        User user = rotatedResult.refreshToken().getUser();
+        CustomUserDetails userDetails = CustomUserDetails.create(user);
+        String newAccessToken = jwtService.generateAccessToken(userDetails);
+
+        ResponseCookie newRefreshCookie = refreshTokenService.createRefreshTokenCookie(rotatedResult.rawToken());
+
+        LoginResponse response = LoginResponse.builder()
+                .token(newAccessToken)
+                .userId(userDetails.getUserId())
+                .username(userDetails.getUsername())
+                .email(userDetails.getEmail())
+                .firstName(userDetails.getFirstName())
+                .lastName(userDetails.getLastName())
+                .role(userDetails.getRole().name())
+                .departmentId(userDetails.getDepartmentId())
+                .departmentName(userDetails.getDepartmentName())
+                .designationName(userDetails.getDesignationName())
+                .permissions(userDetails.getPermissions())
+                .build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, newRefreshCookie.toString())
+                .body(response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            @CookieValue(name = "refreshToken", required = false) String refreshTokenCookie
+    ) {
+        if (refreshTokenCookie != null && !refreshTokenCookie.isBlank()) {
+            refreshTokenService.revokeRefreshToken(refreshTokenCookie);
+        }
+
+        ResponseCookie cleanCookie = refreshTokenService.createCleanRefreshTokenCookie();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cleanCookie.toString())
+                .build();
+    }
+
+    @PostMapping("/logout-all")
+    public ResponseEntity<Void> logoutAll(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        if (userDetails != null && userDetails.getUserId() != null) {
+            refreshTokenService.revokeAllUserTokens(userDetails.getUserId());
+            auditLogService.logSecurityEvent(
+                    AuditAction.SESSION_REVOKED,
+                    userDetails.getUsername(),
+                    userDetails.getRole() != null ? userDetails.getRole().name() : "EMPLOYEE",
+                    "USER",
+                    String.valueOf(userDetails.getUserId()),
+                    "All active user sessions revoked by user request",
+                    AuditResult.SUCCESS,
+                    Map.of("username", userDetails.getUsername())
+            );
+        }
+
+        ResponseCookie cleanCookie = refreshTokenService.createCleanRefreshTokenCookie();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cleanCookie.toString())
+                .build();
     }
 
     @GetMapping("/me")
@@ -163,14 +263,21 @@ public class AuthController {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
 
+        // Security requirement 27: revoke existing refresh sessions after password change
+        refreshTokenService.revokeAllUserTokens(user.getUserId());
+
         auditLogService.logSuccess(
                 AuditAction.USER_UPDATED,
                 "USER",
                 String.valueOf(user.getUserId()),
-                "User changed password",
+                "User changed password and invalidated active sessions",
                 Map.of("username", user.getUsername())
         );
 
-        return ResponseEntity.ok().build();
+        ResponseCookie cleanCookie = refreshTokenService.createCleanRefreshTokenCookie();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cleanCookie.toString())
+                .build();
     }
 }

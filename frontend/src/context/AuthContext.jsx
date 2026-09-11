@@ -1,31 +1,62 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authService } from '../services/authService';
+import { setAccessToken } from '../services/api';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(localStorage.getItem('token') || null);
+  const [token, setTokenState] = useState(null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Restore authenticated session from backend on app startup
+  const updateToken = (newToken) => {
+    setAccessToken(newToken);
+    setTokenState(newToken);
+  };
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await authService.logout();
+    } catch (e) {
+      // Ignore logout errors
+    } finally {
+      updateToken(null);
+      setUser(null);
+      localStorage.removeItem('token');
+      localStorage.removeItem('username');
+      localStorage.removeItem('role');
+      localStorage.removeItem('userId');
+    }
+  }, []);
+
+  // Silent authentication restoration on application startup via HttpOnly refresh cookie
   useEffect(() => {
     const initAuth = async () => {
-      const storedToken = localStorage.getItem('token');
-      if (storedToken) {
-        try {
-          const userData = await authService.getCurrentUser();
-          setUser(userData);
-          setToken(storedToken);
-        } catch (err) {
-          // Token invalid or user inactive -> clear state
-          logout();
-        }
+      try {
+        const data = await authService.refresh();
+        updateToken(data.token);
+        setUser(data);
+      } catch (err) {
+        // Silent refresh failed -> User is unauthenticated (guest)
+        updateToken(null);
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     initAuth();
   }, []);
+
+  // Listen to 401 unhandled refresh failures from api.js interceptor
+  useEffect(() => {
+    const onUnauthorized = () => {
+      handleLogout();
+    };
+    window.addEventListener('auth:unauthorized', onUnauthorized);
+    return () => {
+      window.removeEventListener('auth:unauthorized', onUnauthorized);
+    };
+  }, [handleLogout]);
 
   const login = async (usernameInput, passwordInput) => {
     setLoading(true);
@@ -35,10 +66,7 @@ export const AuthProvider = ({ children }) => {
         password: passwordInput,
       });
 
-      const authToken = data.token;
-      localStorage.setItem('token', authToken);
-
-      setToken(authToken);
+      updateToken(data.token);
       setUser(data);
       return data;
     } finally {
@@ -46,24 +74,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('username');
-    localStorage.removeItem('role');
-    localStorage.removeItem('userId');
-
-    setToken(null);
-    setUser(null);
-  };
-
   const refreshUser = async () => {
-    if (token) {
-      try {
-        const userData = await authService.getCurrentUser();
-        setUser(userData);
-      } catch (err) {
-        logout();
-      }
+    try {
+      const userData = await authService.getCurrentUser();
+      setUser(userData);
+    } catch (err) {
+      handleLogout();
     }
   };
 
@@ -104,7 +120,7 @@ export const AuthProvider = ({ children }) => {
         hasPermission,
         hasRole,
         login,
-        logout,
+        logout: handleLogout,
         refreshUser,
         loading,
       }}

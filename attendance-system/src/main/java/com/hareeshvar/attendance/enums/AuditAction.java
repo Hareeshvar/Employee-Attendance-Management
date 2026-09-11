@@ -48,5 +48,9 @@ public enum AuditAction {
     // Authentication & Security actions
     LOGIN_SUCCESS,
     LOGIN_FAILED,
+    LOGOUT,
+    TOKEN_REFRESH,
+    TOKEN_REUSE_DETECTED,
+    SESSION_REVOKED,
     ACCESS_DENIED
 }
