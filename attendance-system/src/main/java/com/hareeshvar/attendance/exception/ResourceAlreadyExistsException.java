@@ -1,9 +1,10 @@
 package com.hareeshvar.attendance.exception;
 
-public class ResourceAlreadyExistsException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class ResourceAlreadyExistsException extends BaseApplicationException {
 
     public ResourceAlreadyExistsException(String message) {
-        super(message);
+        super(message, HttpStatus.CONFLICT, ErrorCode.RESOURCE_ALREADY_EXISTS);
     }
-
 }

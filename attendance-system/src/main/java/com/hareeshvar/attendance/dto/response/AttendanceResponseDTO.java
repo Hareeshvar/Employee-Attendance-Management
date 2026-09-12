@@ -31,6 +31,20 @@ public class AttendanceResponseDTO {
 
     private Double workingHours;
 
+    private Long shiftId;
+
+    private String shiftName;
+
+    private Integer lateMinutes;
+
+    private Integer earlyDepartureMinutes;
+
+    private Integer workingMinutes;
+
+    private Integer overtimeMinutes;
+
+    private java.util.List<String> exceptions;
+
     private AttendanceStatus status;
 
     private LocalDateTime createdAt;

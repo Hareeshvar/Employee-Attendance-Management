@@ -44,6 +44,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     private final UserRepository userRepository;
     private final DepartmentRepository departmentRepository;
     private final AuditLogService auditLogService;
+    private final com.hareeshvar.attendance.service.AttendanceIntelligenceService attendanceIntelligenceService;
 
     @Override
     @Transactional
@@ -57,6 +58,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         Attendance attendance = attendanceMapper.toEntity(request);
         attendance.setUser(user);
         attendance.setDepartment(department);
+        attendanceIntelligenceService.processAttendanceIntelligence(attendance);
 
         Attendance savedAttendance = attendanceRepository.save(attendance);
 
@@ -201,8 +203,10 @@ public class AttendanceServiceImpl implements AttendanceService {
         attendance.setAttendanceDate(request.getAttendanceDate());
         attendance.setCheckInTime(request.getCheckInTime());
         attendance.setCheckOutTime(request.getCheckOutTime());
-        attendance.setWorkingHours(request.getWorkingHours());
-        attendance.setStatus(request.getStatus());
+        if (request.getStatus() != null) {
+            attendance.setStatus(request.getStatus());
+        }
+        attendanceIntelligenceService.processAttendanceIntelligence(attendance);
 
         Attendance updatedAttendance = attendanceRepository.save(attendance);
 
@@ -251,7 +255,8 @@ public class AttendanceServiceImpl implements AttendanceService {
         attendance.setDepartment(user.getDepartment());
         attendance.setAttendanceDate(today);
         attendance.setCheckInTime(LocalTime.now());
-        attendance.setStatus(AttendanceStatus.PRESENT);
+
+        attendanceIntelligenceService.processAttendanceIntelligence(attendance);
 
         Attendance saved = attendanceRepository.save(attendance);
 
@@ -276,12 +281,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         LocalTime checkOut = LocalTime.now();
         attendance.setCheckOutTime(checkOut);
 
-        double hours = Duration.between(
-                attendance.getCheckInTime(),
-                checkOut
-        ).toMinutes() / 60.0;
-
-        attendance.setWorkingHours(hours);
+        attendanceIntelligenceService.processAttendanceIntelligence(attendance);
 
         Attendance updated = attendanceRepository.save(attendance);
 
@@ -330,5 +330,24 @@ public class AttendanceServiceImpl implements AttendanceService {
         }
 
         return checkOut(userIdToUse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<AttendanceResponseDTO> getAttendanceExceptionsPaginated(
+            Pageable pageable,
+            CustomUserDetails userDetails
+    ) {
+        if (userDetails == null) {
+            throw new AccessDeniedException("Authentication required");
+        }
+
+        Specification<Attendance> spec = AttendanceSpecification.filterAttendance(
+                null, null, null, null, null,
+                userDetails.getRole(), userDetails.getDepartmentId(), userDetails.getUserId()
+        ).and((root, query, cb) -> cb.notEqual(root.get("exceptionsJson"), "[]"));
+
+        Page<Attendance> page = attendanceRepository.findAll(spec, pageable);
+        return PageResponse.from(page.map(attendanceMapper::toResponse));
     }
 }

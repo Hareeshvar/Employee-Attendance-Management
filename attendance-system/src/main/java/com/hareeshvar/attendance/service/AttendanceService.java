@@ -46,4 +46,9 @@ public interface AttendanceService {
     AttendanceResponseDTO checkInWithAuth(Long targetUserId, CustomUserDetails userDetails);
 
     AttendanceResponseDTO checkOutWithAuth(Long targetUserId, CustomUserDetails userDetails);
+
+    PageResponse<AttendanceResponseDTO> getAttendanceExceptionsPaginated(
+            Pageable pageable,
+            CustomUserDetails userDetails
+    );
 }

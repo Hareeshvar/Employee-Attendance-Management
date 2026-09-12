@@ -23,6 +23,8 @@ public class ShiftRequestDTO {
     @NotNull
     private Integer workingHours;
 
+    private Integer graceMinutes;
+
     private String description;
 
 }

@@ -54,7 +54,31 @@ private Department department;
 
     private LocalTime checkOutTime;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "shift_id")
+    private Shift shift;
+
     private Double workingHours;
+
+    @Builder.Default
+    @Column(name = "late_minutes", nullable = false)
+    private Integer lateMinutes = 0;
+
+    @Builder.Default
+    @Column(name = "early_departure_minutes", nullable = false)
+    private Integer earlyDepartureMinutes = 0;
+
+    @Builder.Default
+    @Column(name = "working_minutes", nullable = false)
+    private Integer workingMinutes = 0;
+
+    @Builder.Default
+    @Column(name = "overtime_minutes", nullable = false)
+    private Integer overtimeMinutes = 0;
+
+    @Builder.Default
+    @Column(name = "exceptions_json", nullable = false)
+    private String exceptionsJson = "[]";
 
     @Enumerated(EnumType.STRING)
     private AttendanceStatus status;

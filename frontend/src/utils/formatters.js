@@ -1,26 +1,52 @@
-// Extract human-friendly error messages from backend Axios error responses
-export const getErrorMessage = (error) => {
-  if (!error) return 'An unknown error occurred.';
-  if (typeof error === 'string') return error;
+// Normalize backend Axios error responses into a canonical error object
+export const normalizeApiError = (error) => {
+  if (!error) {
+    return {
+      message: 'An unknown error occurred.',
+      status: 500,
+      errorCode: 'UNKNOWN',
+      fieldErrors: null,
+      requestId: null,
+    };
+  }
 
-  // Backend GlobalExceptionHandler error response
-  if (error.response?.data?.message) {
-    return error.response.data.message;
+  if (typeof error === 'string') {
+    return {
+      message: error,
+      status: 400,
+      errorCode: 'BAD_REQUEST',
+      fieldErrors: null,
+      requestId: null,
+    };
   }
-  if (error.response?.data?.error) {
-    return `${error.response.data.error}: ${error.response.data.message || ''}`;
+
+  const responseData = error.response?.data;
+  const status = error.response?.status || 500;
+  const requestId = error.response?.headers?.['x-request-id'] || responseData?.requestId || null;
+
+  let fieldErrors = responseData?.fieldErrors || null;
+  let message = responseData?.message || error.message || 'An unexpected error occurred.';
+
+  if (responseData?.fieldErrors && Object.keys(responseData.fieldErrors).length > 0) {
+    const details = Object.entries(responseData.fieldErrors)
+      .map(([field, msg]) => `${field}: ${msg}`)
+      .join(', ');
+    message = `Validation failed (${details})`;
+  } else if (error.message === 'Network Error') {
+    message = 'Unable to reach backend server. Please verify Spring Boot (port 8080) and MySQL are running.';
   }
-  if (error.response?.data && typeof error.response.data === 'string') {
-    return error.response.data;
-  }
-  if (error.message) {
-    if (error.message === 'Network Error') {
-      return 'Unable to reach backend server. Please verify Spring Boot (port 8080) and MySQL are running.';
-    }
-    return error.message;
-  }
-  return 'Failed to execute operation. Please check network connection.';
+
+  return {
+    message,
+    status,
+    errorCode: responseData?.errorCode || (status === 401 ? 'UNAUTHORIZED' : status === 403 ? 'ACCESS_DENIED' : 'ERROR'),
+    fieldErrors,
+    requestId,
+  };
 };
+
+// Extract human-friendly error messages for UI display
+export const getErrorMessage = (error) => normalizeApiError(error).message;
 
 // Format ISO date (YYYY-MM-DD) to readable format
 export const formatDate = (dateStr) => {
@@ -61,4 +87,14 @@ export const formatCurrency = (amount) => {
     style: 'currency',
     currency: 'USD',
   }).format(amount);
+};
+
+// Format Minutes into human readable hours and minutes (e.g. 509 -> 8h 29m)
+export const formatMinutes = (minutes) => {
+  if (minutes === undefined || minutes === null || isNaN(minutes) || minutes <= 0) return '0m';
+  const hrs = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hrs > 0 && mins > 0) return `${hrs}h ${mins}m`;
+  if (hrs > 0) return `${hrs}h`;
+  return `${mins}m`;
 };

@@ -8,7 +8,7 @@ import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
 import Toast from '../components/Toast';
 import Pagination from '../components/Pagination';
-import { formatDate, formatTime, getErrorMessage } from '../utils/formatters';
+import { formatDate, formatTime, formatMinutes, getErrorMessage } from '../utils/formatters';
 
 const AttendancePage = () => {
   const { isAdmin } = useAuth();
@@ -358,17 +358,19 @@ const AttendancePage = () => {
                 <tr>
                   <th>Record ID</th>
                   <th>Employee Name</th>
+                  <th>Shift</th>
                   <th>Date</th>
                   <th>Check-In</th>
                   <th>Check-Out</th>
-                  <th>Working Hours</th>
-                  <th>Status</th>
+                  <th>Working Duration</th>
+                  <th>Status & Exceptions</th>
                   {isAdmin && <th style={{ textAlign: 'right' }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
                 {attendances.map((record) => {
                   const id = record.attendanceId || record.id;
+                  const exList = record.exceptions || [];
                   return (
                     <tr key={id}>
                       <td style={{ fontWeight: 700 }}>#{id}</td>
@@ -377,12 +379,55 @@ const AttendancePage = () => {
                           {record.userFirstName ? `${record.userFirstName} ${record.userLastName}` : `User #${record.userId}`}
                         </div>
                       </td>
+                      <td>
+                        <span style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                          {record.shiftName || 'Unassigned'}
+                        </span>
+                      </td>
                       <td>{formatDate(record.attendanceDate)}</td>
                       <td>{formatTime(record.checkInTime)}</td>
                       <td>{formatTime(record.checkOutTime)}</td>
-                      <td>{record.workingHours !== null && record.workingHours !== undefined ? `${record.workingHours} hrs` : '--'}</td>
                       <td>
-                        <StatusBadge status={record.status} />
+                        {record.workingMinutes > 0 ? (
+                          <div style={{ fontWeight: 600, color: 'var(--primary-light)' }}>
+                            {formatMinutes(record.workingMinutes)}
+                          </div>
+                        ) : record.workingHours ? (
+                          `${record.workingHours} hrs`
+                        ) : (
+                          '--'
+                        )}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <StatusBadge status={record.status} />
+                            {record.lateMinutes > 0 && (
+                              <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>
+                                Late {formatMinutes(record.lateMinutes)}
+                              </span>
+                            )}
+                            {record.earlyDepartureMinutes > 0 && (
+                              <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>
+                                Early {formatMinutes(record.earlyDepartureMinutes)}
+                              </span>
+                            )}
+                            {record.overtimeMinutes > 0 && (
+                              <span className="badge badge-info" style={{ fontSize: '0.7rem' }}>
+                                OT {formatMinutes(record.overtimeMinutes)}
+                              </span>
+                            )}
+                          </div>
+                          {exList.length > 0 && (
+                            <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+                              {exList.map((ex, idx) => (
+                                <span key={idx} style={{ fontSize: '0.65rem', padding: '0.1rem 0.35rem', borderRadius: '3px', background: ex === 'NO_SHIFT_ASSIGNED' ? 'rgba(100,100,100,0.2)' : 'rgba(239, 68, 68, 0.15)', color: ex === 'NO_SHIFT_ASSIGNED' ? '#aaa' : '#f87171', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                  ⚠ {ex.replace(/_/g, ' ')}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       {isAdmin && (
                         <td style={{ textAlign: 'right' }}>

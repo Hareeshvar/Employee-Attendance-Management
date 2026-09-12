@@ -73,6 +73,19 @@ public class AttendanceController {
         return attendanceService.getAnalyticsAttendance(startDate, endDate, userDetails);
     }
 
+    @GetMapping("/exceptions")
+    public PageResponse<AttendanceResponseDTO> getAttendanceExceptions(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "attendanceDate") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        return attendanceService.getAttendanceExceptionsPaginated(pageable, userDetails);
+    }
+
     @GetMapping("/{id}")
     public AttendanceResponseDTO getAttendanceById(
             @PathVariable Long id,

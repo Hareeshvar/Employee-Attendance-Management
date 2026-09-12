@@ -39,8 +39,16 @@ public class Shift {
     @Column(nullable = false)
     private LocalTime endTime;
 
-    @Column(nullable =false)
+    @Column(nullable = false)
     private Integer workingHours;
+
+    @Builder.Default
+    @Column(name = "grace_minutes", nullable = false)
+    private Integer graceMinutes = 15;
+
+    @Builder.Default
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
 
     @Column(length = 300)
     private String description;

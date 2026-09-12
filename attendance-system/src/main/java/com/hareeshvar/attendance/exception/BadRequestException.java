@@ -1,9 +1,10 @@
 package com.hareeshvar.attendance.exception;
 
-public class BadRequestException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class BadRequestException extends BaseApplicationException {
 
     public BadRequestException(String message) {
-        super(message);
+        super(message, HttpStatus.BAD_REQUEST, ErrorCode.BAD_REQUEST);
     }
-
 }

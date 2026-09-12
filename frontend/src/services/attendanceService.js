@@ -11,6 +11,10 @@ export const attendanceService = {
     });
     return response.data;
   },
+  getExceptions: async (params) => {
+    const response = await api.get('/attendance/exceptions', { params });
+    return response.data;
+  },
   getById: async (id) => {
     const response = await api.get(`/attendance/${id}`);
     return response.data;

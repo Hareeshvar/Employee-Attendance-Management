@@ -1,12 +1,16 @@
 package com.hareeshvar.attendance.security.config;
 
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -18,7 +22,13 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.hareeshvar.attendance.exception.ErrorCode;
+import com.hareeshvar.attendance.exception.ErrorResponse;
 import com.hareeshvar.attendance.security.filter.JwtAuthenticationFilter;
+import com.hareeshvar.attendance.security.filter.RequestCorrelationFilter;
 import com.hareeshvar.attendance.security.jwt.JwtAuthenticationEntryPoint;
 
 import lombok.RequiredArgsConstructor;
@@ -29,7 +39,17 @@ import lombok.RequiredArgsConstructor;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RequestCorrelationFilter requestCorrelationFilter;
     private final JwtAuthenticationEntryPoint authenticationEntryPoint;
+
+    private final ObjectMapper objectMapper = createObjectMapper();
+
+    private static ObjectMapper createObjectMapper() {
+        ObjectMapper om = new ObjectMapper();
+        om.registerModule(new JavaTimeModule());
+        om.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        return om;
+    }
 
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
@@ -51,9 +71,25 @@ public class SecurityConfig {
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            String requestId = (String) request.getAttribute(RequestCorrelationFilter.ATTRIBUTE_REQUEST_ID);
+                            if (requestId == null) {
+                                requestId = MDC.get(RequestCorrelationFilter.MDC_REQUEST_ID_KEY);
+                            }
+
+                            ErrorResponse errorResponse = ErrorResponse.builder()
+                                    .success(false)
+                                    .timestamp(LocalDateTime.now())
+                                    .status(HttpStatus.FORBIDDEN.value())
+                                    .error(HttpStatus.FORBIDDEN.getReasonPhrase())
+                                    .errorCode(ErrorCode.ACCESS_DENIED)
+                                    .message("Access Denied: You do not have permission to perform this operation or access this resource")
+                                    .path(request.getRequestURI())
+                                    .requestId(requestId)
+                                    .build();
+
                             response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
-                            response.setContentType("application/json;charset=UTF-8");
-                            response.getWriter().write("{\"status\":403,\"error\":\"Forbidden\",\"message\":\"Access Denied: You do not have permission to access this resource\"}");
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            response.getWriter().write(objectMapper.writeValueAsString(errorResponse));
                         })
                 )
                 .authorizeHttpRequests(auth -> auth
@@ -147,9 +183,8 @@ public class SecurityConfig {
                         // =========================
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(
-                        jwtAuthenticationFilter,
-                        UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(requestCorrelationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -160,7 +195,8 @@ public class SecurityConfig {
         List<String> origins = Arrays.asList(allowedOrigins.split(","));
         configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin", "X-Request-ID"));
+        configuration.setExposedHeaders(Arrays.asList("X-Request-ID"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 

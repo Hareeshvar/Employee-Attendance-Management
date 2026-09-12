@@ -20,6 +20,8 @@ public class ShiftResponseDTO {
 
     private Integer workingHours;
 
+    private Integer graceMinutes;
+
     private String description;
 
     private LocalDateTime createdAt;

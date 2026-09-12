@@ -11,4 +11,9 @@ public interface EmployeeShiftRepository
 
     List<EmployeeShift> findByUserUserId(Long userId);
 
+    java.util.Optional<EmployeeShift> findFirstByUserUserIdAndStatusAndEffectiveDateLessThanEqualOrderByEffectiveDateDesc(
+            Long userId,
+            com.hareeshvar.attendance.enums.EmployeeShiftStatus status,
+            java.time.LocalDate effectiveDate
+    );
 }
