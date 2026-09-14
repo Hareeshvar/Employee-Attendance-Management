@@ -1,8 +1,11 @@
 package com.hareeshvar.attendance.service.impl;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -14,14 +17,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.hareeshvar.attendance.dto.request.AttendanceRequestDTO;
+import com.hareeshvar.attendance.dto.request.LocationPunchRequestDTO;
 import com.hareeshvar.attendance.dto.response.AttendanceResponseDTO;
 import com.hareeshvar.attendance.dto.response.PageResponse;
 import com.hareeshvar.attendance.entity.Attendance;
+import com.hareeshvar.attendance.entity.AttendanceLocationVerification;
 import com.hareeshvar.attendance.entity.Department;
 import com.hareeshvar.attendance.entity.User;
 import com.hareeshvar.attendance.enums.AttendanceStatus;
 import com.hareeshvar.attendance.enums.AuditAction;
+import com.hareeshvar.attendance.enums.PunchType;
 import com.hareeshvar.attendance.enums.RoleName;
+import com.hareeshvar.attendance.enums.VerificationMethod;
 import com.hareeshvar.attendance.exception.BadRequestException;
 import com.hareeshvar.attendance.exception.ResourceNotFoundException;
 import com.hareeshvar.attendance.mapper.AttendanceMapper;
@@ -30,8 +37,10 @@ import com.hareeshvar.attendance.repository.DepartmentRepository;
 import com.hareeshvar.attendance.repository.UserRepository;
 import com.hareeshvar.attendance.repository.specification.AttendanceSpecification;
 import com.hareeshvar.attendance.security.service.CustomUserDetails;
+import com.hareeshvar.attendance.service.AttendanceIntelligenceService;
 import com.hareeshvar.attendance.service.AttendanceService;
 import com.hareeshvar.attendance.service.AuditLogService;
+import com.hareeshvar.attendance.service.GeofenceService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -44,7 +53,9 @@ public class AttendanceServiceImpl implements AttendanceService {
     private final UserRepository userRepository;
     private final DepartmentRepository departmentRepository;
     private final AuditLogService auditLogService;
-    private final com.hareeshvar.attendance.service.AttendanceIntelligenceService attendanceIntelligenceService;
+    private final AttendanceIntelligenceService attendanceIntelligenceService;
+    private final GeofenceService geofenceService;
+    private final Clock clock;
 
     @Override
     @Transactional
@@ -58,6 +69,28 @@ public class AttendanceServiceImpl implements AttendanceService {
         Attendance attendance = attendanceMapper.toEntity(request);
         attendance.setUser(user);
         attendance.setDepartment(department);
+
+        if (attendance.getCheckInTime() != null) {
+            AttendanceLocationVerification verIn = AttendanceLocationVerification.builder()
+                    .attendance(attendance)
+                    .punchType(PunchType.CHECK_IN)
+                    .locationVerified(false)
+                    .verificationMethod(VerificationMethod.ADMIN_OVERRIDE)
+                    .verifiedAt(LocalDateTime.now(clock))
+                    .build();
+            attendance.getVerifications().add(verIn);
+        }
+        if (attendance.getCheckOutTime() != null) {
+            AttendanceLocationVerification verOut = AttendanceLocationVerification.builder()
+                    .attendance(attendance)
+                    .punchType(PunchType.CHECK_OUT)
+                    .locationVerified(false)
+                    .verificationMethod(VerificationMethod.ADMIN_OVERRIDE)
+                    .verifiedAt(LocalDateTime.now(clock))
+                    .build();
+            attendance.getVerifications().add(verOut);
+        }
+
         attendanceIntelligenceService.processAttendanceIntelligence(attendance);
 
         Attendance savedAttendance = attendanceRepository.save(attendance);
@@ -243,7 +276,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
 
         attendanceRepository.findByUserUserIdAndAttendanceDate(userId, today)
                 .ifPresent(a -> {
@@ -254,7 +287,19 @@ public class AttendanceServiceImpl implements AttendanceService {
         attendance.setUser(user);
         attendance.setDepartment(user.getDepartment());
         attendance.setAttendanceDate(today);
-        attendance.setCheckInTime(LocalTime.now());
+        attendance.setCheckInTime(LocalTime.now(clock));
+
+        AttendanceLocationVerification verification = AttendanceLocationVerification.builder()
+                .attendance(attendance)
+                .punchType(PunchType.CHECK_IN)
+                .workplace(null)
+                .distanceMeters(null)
+                .locationAccuracyMeters(null)
+                .locationVerified(false)
+                .verificationMethod(VerificationMethod.LEGACY)
+                .verifiedAt(LocalDateTime.now(clock))
+                .build();
+        attendance.getVerifications().add(verification);
 
         attendanceIntelligenceService.processAttendanceIntelligence(attendance);
 
@@ -264,7 +309,7 @@ public class AttendanceServiceImpl implements AttendanceService {
                 AuditAction.ATTENDANCE_CHECK_IN,
                 "ATTENDANCE",
                 String.valueOf(saved.getAttendanceId()),
-                "Employee '" + user.getUsername() + "' checked in",
+                "Employee '" + user.getUsername() + "' checked in (LEGACY)",
                 Map.of("userId", user.getUserId(), "checkInTime", saved.getCheckInTime().toString())
         );
 
@@ -275,11 +320,27 @@ public class AttendanceServiceImpl implements AttendanceService {
     @Transactional
     public AttendanceResponseDTO checkOut(Long userId) {
         Attendance attendance = attendanceRepository
-                .findByUserUserIdAndAttendanceDate(userId, LocalDate.now())
+                .findByUserUserIdAndAttendanceDate(userId, LocalDate.now(clock))
                 .orElseThrow(() -> new ResourceNotFoundException("Attendance check-in not found for today"));
 
-        LocalTime checkOut = LocalTime.now();
+        if (attendance.getCheckOutTime() != null) {
+            throw new BadRequestException("User already checked out today");
+        }
+
+        LocalTime checkOut = LocalTime.now(clock);
         attendance.setCheckOutTime(checkOut);
+
+        AttendanceLocationVerification verification = AttendanceLocationVerification.builder()
+                .attendance(attendance)
+                .punchType(PunchType.CHECK_OUT)
+                .workplace(null)
+                .distanceMeters(null)
+                .locationAccuracyMeters(null)
+                .locationVerified(false)
+                .verificationMethod(VerificationMethod.LEGACY)
+                .verifiedAt(LocalDateTime.now(clock))
+                .build();
+        attendance.getVerifications().add(verification);
 
         attendanceIntelligenceService.processAttendanceIntelligence(attendance);
 
@@ -289,8 +350,8 @@ public class AttendanceServiceImpl implements AttendanceService {
                 AuditAction.ATTENDANCE_CHECK_OUT,
                 "ATTENDANCE",
                 String.valueOf(updated.getAttendanceId()),
-                "Employee '" + updated.getUser().getUsername() + "' checked out",
-                Map.of("userId", updated.getUser().getUserId(), "workingHours", updated.getWorkingHours())
+                "Employee '" + updated.getUser().getUsername() + "' checked out (LEGACY)",
+                Map.of("userId", updated.getUser().getUserId(), "workingHours", updated.getWorkingHours() != null ? updated.getWorkingHours() : 0.0)
         );
 
         return attendanceMapper.toResponse(updated);
@@ -298,38 +359,189 @@ public class AttendanceServiceImpl implements AttendanceService {
 
     @Override
     @Transactional
-    public AttendanceResponseDTO checkInWithAuth(Long targetUserId, CustomUserDetails userDetails) {
+    public AttendanceResponseDTO checkInWithAuth(Long targetUserId, LocationPunchRequestDTO locationRequest, CustomUserDetails userDetails) {
         if (userDetails == null) {
             throw new AccessDeniedException("Authentication required");
         }
 
         Long userIdToUse = (targetUserId != null) ? targetUserId : userDetails.getUserId();
+        boolean isSelf = userDetails.getUserId().equals(userIdToUse);
 
         if (userDetails.getRole() != RoleName.ADMIN && userDetails.getRole() != RoleName.HR) {
-            if (!userDetails.getUserId().equals(userIdToUse)) {
+            if (!isSelf) {
                 throw new AccessDeniedException("Access denied: You can only check in for yourself");
             }
         }
 
-        return checkIn(userIdToUse);
+        User user = userRepository.findById(userIdToUse)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userIdToUse));
+
+        LocalDate today = LocalDate.now(clock);
+
+        attendanceRepository.findByUserUserIdAndAttendanceDate(userIdToUse, today)
+                .ifPresent(a -> {
+                    throw new BadRequestException("User already checked in today");
+                });
+
+        Attendance attendance = new Attendance();
+        attendance.setUser(user);
+        attendance.setDepartment(user.getDepartment());
+        attendance.setAttendanceDate(today);
+        attendance.setCheckInTime(LocalTime.now(clock));
+
+        AttendanceLocationVerification verification;
+
+        if (locationRequest != null) {
+            GeofenceService.GeofenceResult result = geofenceService.verifyLocation(
+                    userIdToUse,
+                    locationRequest.getLatitude(),
+                    locationRequest.getLongitude(),
+                    locationRequest.getAccuracyMeters()
+            );
+
+            verification = AttendanceLocationVerification.builder()
+                    .attendance(attendance)
+                    .punchType(PunchType.CHECK_IN)
+                    .workplace(result.workplace())
+                    .distanceMeters(result.distanceMeters())
+                    .locationAccuracyMeters(result.accuracyMeters())
+                    .locationVerified(true)
+                    .verificationMethod(VerificationMethod.GEOFENCE)
+                    .verifiedAt(LocalDateTime.now(clock))
+                    .build();
+        } else {
+            if (isSelf) {
+                throw new BadRequestException("Location coordinates are required for self-service check-in");
+            }
+            verification = AttendanceLocationVerification.builder()
+                    .attendance(attendance)
+                    .punchType(PunchType.CHECK_IN)
+                    .workplace(null)
+                    .distanceMeters(null)
+                    .locationAccuracyMeters(null)
+                    .locationVerified(false)
+                    .verificationMethod(VerificationMethod.ADMIN_OVERRIDE)
+                    .verifiedAt(LocalDateTime.now(clock))
+                    .build();
+        }
+
+        attendance.getVerifications().add(verification);
+        attendanceIntelligenceService.processAttendanceIntelligence(attendance);
+
+        Attendance saved = attendanceRepository.save(attendance);
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("userId", user.getUserId());
+        metadata.put("checkInTime", saved.getCheckInTime().toString());
+        metadata.put("verificationMethod", verification.getVerificationMethod().name());
+        if (verification.getWorkplace() != null) {
+            metadata.put("workplaceId", verification.getWorkplace().getWorkplaceId());
+            metadata.put("distanceMeters", verification.getDistanceMeters());
+            metadata.put("accuracyMeters", verification.getLocationAccuracyMeters());
+        }
+
+        auditLogService.logSuccess(
+                verification.getVerificationMethod() == VerificationMethod.ADMIN_OVERRIDE
+                        ? AuditAction.ADMIN_ATTENDANCE_OVERRIDE
+                        : AuditAction.ATTENDANCE_CHECK_IN,
+                "ATTENDANCE",
+                String.valueOf(saved.getAttendanceId()),
+                "Employee '" + user.getUsername() + "' checked in (" + verification.getVerificationMethod() + ")",
+                metadata
+        );
+
+        return attendanceMapper.toResponse(saved);
     }
 
     @Override
     @Transactional
-    public AttendanceResponseDTO checkOutWithAuth(Long targetUserId, CustomUserDetails userDetails) {
+    public AttendanceResponseDTO checkOutWithAuth(Long targetUserId, LocationPunchRequestDTO locationRequest, CustomUserDetails userDetails) {
         if (userDetails == null) {
             throw new AccessDeniedException("Authentication required");
         }
 
         Long userIdToUse = (targetUserId != null) ? targetUserId : userDetails.getUserId();
+        boolean isSelf = userDetails.getUserId().equals(userIdToUse);
 
         if (userDetails.getRole() != RoleName.ADMIN && userDetails.getRole() != RoleName.HR) {
-            if (!userDetails.getUserId().equals(userIdToUse)) {
+            if (!isSelf) {
                 throw new AccessDeniedException("Access denied: You can only check out for yourself");
             }
         }
 
-        return checkOut(userIdToUse);
+        LocalDate today = LocalDate.now(clock);
+        Attendance attendance = attendanceRepository
+                .findByUserUserIdAndAttendanceDate(userIdToUse, today)
+                .orElseThrow(() -> new ResourceNotFoundException("Attendance check-in not found for today"));
+
+        if (attendance.getCheckOutTime() != null) {
+            throw new BadRequestException("User already checked out today");
+        }
+
+        attendance.setCheckOutTime(LocalTime.now(clock));
+
+        AttendanceLocationVerification verification;
+
+        if (locationRequest != null) {
+            GeofenceService.GeofenceResult result = geofenceService.verifyLocation(
+                    userIdToUse,
+                    locationRequest.getLatitude(),
+                    locationRequest.getLongitude(),
+                    locationRequest.getAccuracyMeters()
+            );
+
+            verification = AttendanceLocationVerification.builder()
+                    .attendance(attendance)
+                    .punchType(PunchType.CHECK_OUT)
+                    .workplace(result.workplace())
+                    .distanceMeters(result.distanceMeters())
+                    .locationAccuracyMeters(result.accuracyMeters())
+                    .locationVerified(true)
+                    .verificationMethod(VerificationMethod.GEOFENCE)
+                    .verifiedAt(LocalDateTime.now(clock))
+                    .build();
+        } else {
+            if (isSelf) {
+                throw new BadRequestException("Location coordinates are required for self-service check-out");
+            }
+            verification = AttendanceLocationVerification.builder()
+                    .attendance(attendance)
+                    .punchType(PunchType.CHECK_OUT)
+                    .workplace(null)
+                    .distanceMeters(null)
+                    .locationAccuracyMeters(null)
+                    .locationVerified(false)
+                    .verificationMethod(VerificationMethod.ADMIN_OVERRIDE)
+                    .verifiedAt(LocalDateTime.now(clock))
+                    .build();
+        }
+
+        attendance.getVerifications().add(verification);
+        attendanceIntelligenceService.processAttendanceIntelligence(attendance);
+
+        Attendance updated = attendanceRepository.save(attendance);
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("userId", updated.getUser().getUserId());
+        metadata.put("workingHours", updated.getWorkingHours());
+        metadata.put("verificationMethod", verification.getVerificationMethod().name());
+        if (verification.getWorkplace() != null) {
+            metadata.put("workplaceId", verification.getWorkplace().getWorkplaceId());
+            metadata.put("distanceMeters", verification.getDistanceMeters());
+            metadata.put("accuracyMeters", verification.getLocationAccuracyMeters());
+        }
+
+        auditLogService.logSuccess(
+                verification.getVerificationMethod() == VerificationMethod.ADMIN_OVERRIDE
+                        ? AuditAction.ADMIN_ATTENDANCE_OVERRIDE
+                        : AuditAction.ATTENDANCE_CHECK_OUT,
+                "ATTENDANCE",
+                String.valueOf(updated.getAttendanceId()),
+                "Employee '" + updated.getUser().getUsername() + "' checked out (" + verification.getVerificationMethod() + ")",
+                metadata
+        );
+
+        return attendanceMapper.toResponse(updated);
     }
 
     @Override

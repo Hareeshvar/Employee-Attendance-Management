@@ -43,9 +43,9 @@ public interface AttendanceService {
 
     AttendanceResponseDTO checkOut(Long userId);
 
-    AttendanceResponseDTO checkInWithAuth(Long targetUserId, CustomUserDetails userDetails);
+    AttendanceResponseDTO checkInWithAuth(Long targetUserId, com.hareeshvar.attendance.dto.request.LocationPunchRequestDTO locationRequest, CustomUserDetails userDetails);
 
-    AttendanceResponseDTO checkOutWithAuth(Long targetUserId, CustomUserDetails userDetails);
+    AttendanceResponseDTO checkOutWithAuth(Long targetUserId, com.hareeshvar.attendance.dto.request.LocationPunchRequestDTO locationRequest, CustomUserDetails userDetails);
 
     PageResponse<AttendanceResponseDTO> getAttendanceExceptionsPaginated(
             Pageable pageable,

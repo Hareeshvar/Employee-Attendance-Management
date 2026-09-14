@@ -19,6 +19,7 @@ public interface AttendanceMapper {
     @Mapping(target = "workingMinutes", ignore = true)
     @Mapping(target = "overtimeMinutes", ignore = true)
     @Mapping(target = "exceptionsJson", ignore = true)
+    @Mapping(target = "verifications", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     Attendance toEntity(AttendanceRequestDTO dto);
@@ -30,7 +31,25 @@ public interface AttendanceMapper {
     @Mapping(source = "shift.shiftId", target = "shiftId")
     @Mapping(source = "shift.shiftName", target = "shiftName")
     @Mapping(target = "exceptions", expression = "java(parseExceptionsJson(attendance.getExceptionsJson()))")
+    @Mapping(target = "checkInVerification", expression = "java(toVerificationDTO(attendance.getCheckInVerification()))")
+    @Mapping(target = "checkOutVerification", expression = "java(toVerificationDTO(attendance.getCheckOutVerification()))")
     AttendanceResponseDTO toResponse(Attendance attendance);
+
+    default com.hareeshvar.attendance.dto.response.LocationVerificationResponseDTO toVerificationDTO(com.hareeshvar.attendance.entity.AttendanceLocationVerification ver) {
+        if (ver == null) {
+            return null;
+        }
+        return com.hareeshvar.attendance.dto.response.LocationVerificationResponseDTO.builder()
+                .punchType(ver.getPunchType())
+                .workplaceId(ver.getWorkplace() != null ? ver.getWorkplace().getWorkplaceId() : null)
+                .workplaceName(ver.getWorkplace() != null ? ver.getWorkplace().getName() : null)
+                .distanceMeters(ver.getDistanceMeters())
+                .locationAccuracyMeters(ver.getLocationAccuracyMeters())
+                .locationVerified(ver.getLocationVerified())
+                .verificationMethod(ver.getVerificationMethod())
+                .verifiedAt(ver.getVerifiedAt())
+                .build();
+    }
 
     default java.util.List<String> parseExceptionsJson(String json) {
         if (json == null || json.isBlank() || json.equals("[]")) {

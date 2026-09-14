@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, LogIn, LogOut, Trash2, Edit, Clock, Filter } from 'lucide-react';
+import { Plus, Search, LogIn, LogOut, Trash2, Edit, Clock, Filter, MapPin } from 'lucide-react';
 import { attendanceService } from '../services/attendanceService';
 import { userService } from '../services/userService';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +9,7 @@ import Modal from '../components/Modal';
 import Toast from '../components/Toast';
 import Pagination from '../components/Pagination';
 import { formatDate, formatTime, formatMinutes, getErrorMessage } from '../utils/formatters';
+import { getCurrentLocation } from '../utils/geolocation';
 
 const AttendancePage = () => {
   const { isAdmin } = useAuth();
@@ -37,6 +38,7 @@ const AttendancePage = () => {
   // Punch Action State
   const [punchUserId, setPunchUserId] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [geoStatus, setGeoStatus] = useState('');
 
   // Modal States
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -129,36 +131,46 @@ const AttendancePage = () => {
   };
 
   const handleQuickCheckIn = async () => {
-    if (!punchUserId) {
-      setToast({ message: 'Please specify a User ID to Check In.', type: 'error' });
-      return;
-    }
     setActionLoading(true);
+    setGeoStatus('');
     try {
-      await attendanceService.checkIn(punchUserId);
-      setToast({ message: `Checked In user #${punchUserId} successfully!`, type: 'success' });
+      let locationPayload = null;
+      if (!punchUserId) {
+        setGeoStatus('Acquiring high-accuracy GPS coordinates...');
+        const coords = await getCurrentLocation();
+        locationPayload = coords;
+        setGeoStatus('Verifying workplace perimeter...');
+      }
+      await attendanceService.checkIn(punchUserId || null, locationPayload);
+      setToast({ message: punchUserId ? `Checked In user #${punchUserId} successfully!` : 'Checked In successfully!', type: 'success' });
       loadAttendance();
     } catch (err) {
       setToast({ message: getErrorMessage(err), type: 'error' });
     } finally {
       setActionLoading(false);
+      setGeoStatus('');
     }
   };
 
   const handleQuickCheckOut = async () => {
-    if (!punchUserId) {
-      setToast({ message: 'Please specify a User ID to Check Out.', type: 'error' });
-      return;
-    }
     setActionLoading(true);
+    setGeoStatus('');
     try {
-      await attendanceService.checkOut(punchUserId);
-      setToast({ message: `Checked Out user #${punchUserId} successfully!`, type: 'success' });
+      let locationPayload = null;
+      if (!punchUserId) {
+        setGeoStatus('Acquiring high-accuracy GPS coordinates...');
+        const coords = await getCurrentLocation();
+        locationPayload = coords;
+        setGeoStatus('Verifying workplace perimeter...');
+      }
+      await attendanceService.checkOut(punchUserId || null, locationPayload);
+      setToast({ message: punchUserId ? `Checked Out user #${punchUserId} successfully!` : 'Checked Out successfully!', type: 'success' });
       loadAttendance();
     } catch (err) {
       setToast({ message: getErrorMessage(err), type: 'error' });
     } finally {
       setActionLoading(false);
+      setGeoStatus('');
     }
   };
 
@@ -297,6 +309,26 @@ const AttendancePage = () => {
               <span>Check Out</span>
             </button>
           </div>
+          {geoStatus && (
+            <div
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '0.825rem',
+                color: '#60a5fa',
+                background: 'rgba(59, 130, 246, 0.1)',
+                padding: '0.45rem 0.8rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid rgba(59, 130, 246, 0.25)',
+                marginTop: '0.5rem',
+              }}
+            >
+              <MapPin size={15} style={{ animation: 'pulse 1.5s infinite' }} />
+              <span>{geoStatus}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -362,6 +394,7 @@ const AttendancePage = () => {
                   <th>Date</th>
                   <th>Check-In</th>
                   <th>Check-Out</th>
+                  <th>Location Verification</th>
                   <th>Working Duration</th>
                   <th>Status & Exceptions</th>
                   {isAdmin && <th style={{ textAlign: 'right' }}>Actions</th>}
@@ -387,6 +420,55 @@ const AttendancePage = () => {
                       <td>{formatDate(record.attendanceDate)}</td>
                       <td>{formatTime(record.checkInTime)}</td>
                       <td>{formatTime(record.checkOutTime)}</td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.78rem' }}>
+                          {record.checkInVerification ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
+                              <span style={{ color: 'var(--text-secondary)' }}>In:</span>
+                              <span style={{ fontWeight: 600, color: record.checkInVerification.locationVerified ? '#34d399' : '#f87171' }}>
+                                {record.checkInVerification.workplaceName || 'Site'}
+                              </span>
+                              <span className="badge" style={{
+                                fontSize: '0.65rem',
+                                padding: '0.1rem 0.35rem',
+                                background: record.checkInVerification.verificationMethod === 'ADMIN_OVERRIDE' ? 'rgba(234, 179, 8, 0.15)' : 'rgba(52, 211, 153, 0.15)',
+                                color: record.checkInVerification.verificationMethod === 'ADMIN_OVERRIDE' ? '#fbbf24' : '#34d399'
+                              }}>
+                                {record.checkInVerification.verificationMethod}
+                              </span>
+                              {record.checkInVerification.distanceMeters !== undefined && record.checkInVerification.distanceMeters !== null && (
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>
+                                  ({Math.round(record.checkInVerification.distanceMeters)}m)
+                                </span>
+                              )}
+                            </div>
+                          ) : null}
+                          {record.checkOutVerification ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', flexWrap: 'wrap' }}>
+                              <span style={{ color: 'var(--text-secondary)' }}>Out:</span>
+                              <span style={{ fontWeight: 600, color: record.checkOutVerification.locationVerified ? '#34d399' : '#f87171' }}>
+                                {record.checkOutVerification.workplaceName || 'Site'}
+                              </span>
+                              <span className="badge" style={{
+                                fontSize: '0.65rem',
+                                padding: '0.1rem 0.35rem',
+                                background: record.checkOutVerification.verificationMethod === 'ADMIN_OVERRIDE' ? 'rgba(234, 179, 8, 0.15)' : 'rgba(52, 211, 153, 0.15)',
+                                color: record.checkOutVerification.verificationMethod === 'ADMIN_OVERRIDE' ? '#fbbf24' : '#34d399'
+                              }}>
+                                {record.checkOutVerification.verificationMethod}
+                              </span>
+                              {record.checkOutVerification.distanceMeters !== undefined && record.checkOutVerification.distanceMeters !== null && (
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>
+                                  ({Math.round(record.checkOutVerification.distanceMeters)}m)
+                                </span>
+                              )}
+                            </div>
+                          ) : null}
+                          {!record.checkInVerification && !record.checkOutVerification && (
+                            <span style={{ color: 'var(--text-muted)' }}>--</span>
+                          )}
+                        </div>
+                      </td>
                       <td>
                         {record.workingMinutes > 0 ? (
                           <div style={{ fontWeight: 600, color: 'var(--primary-light)' }}>

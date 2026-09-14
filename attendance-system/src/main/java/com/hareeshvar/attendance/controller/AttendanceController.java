@@ -109,26 +109,32 @@ public class AttendanceController {
     }
 
     @PostMapping("/checkin")
-    public ResponseEntity<AttendanceResponseDTO> checkInSelf(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(attendanceService.checkInWithAuth(userDetails.getUserId(), userDetails));
+    public ResponseEntity<AttendanceResponseDTO> checkInSelf(
+            @Valid @RequestBody com.hareeshvar.attendance.dto.request.LocationPunchRequestDTO request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(attendanceService.checkInWithAuth(userDetails.getUserId(), request, userDetails));
     }
 
     @PostMapping("/checkout")
-    public ResponseEntity<AttendanceResponseDTO> checkOutSelf(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(attendanceService.checkOutWithAuth(userDetails.getUserId(), userDetails));
+    public ResponseEntity<AttendanceResponseDTO> checkOutSelf(
+            @Valid @RequestBody com.hareeshvar.attendance.dto.request.LocationPunchRequestDTO request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(attendanceService.checkOutWithAuth(userDetails.getUserId(), request, userDetails));
     }
 
     @PostMapping("/checkin/{userId}")
     public ResponseEntity<AttendanceResponseDTO> checkIn(
             @PathVariable Long userId,
+            @RequestBody(required = false) com.hareeshvar.attendance.dto.request.LocationPunchRequestDTO request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(attendanceService.checkInWithAuth(userId, userDetails));
+        return ResponseEntity.ok(attendanceService.checkInWithAuth(userId, request, userDetails));
     }
 
     @PostMapping("/checkout/{userId}")
     public ResponseEntity<AttendanceResponseDTO> checkOut(
             @PathVariable Long userId,
+            @RequestBody(required = false) com.hareeshvar.attendance.dto.request.LocationPunchRequestDTO request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(attendanceService.checkOutWithAuth(userId, userDetails));
+        return ResponseEntity.ok(attendanceService.checkOutWithAuth(userId, request, userDetails));
     }
 }

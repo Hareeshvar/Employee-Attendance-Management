@@ -83,6 +83,26 @@ private Department department;
     @Enumerated(EnumType.STRING)
     private AttendanceStatus status;
 
+    @Builder.Default
+    @jakarta.persistence.OneToMany(mappedBy = "attendance", cascade = jakarta.persistence.CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private java.util.List<AttendanceLocationVerification> verifications = new java.util.ArrayList<>();
+
+    public AttendanceLocationVerification getCheckInVerification() {
+        if (verifications == null) return null;
+        return verifications.stream()
+                .filter(v -> v.getPunchType() == com.hareeshvar.attendance.enums.PunchType.CHECK_IN)
+                .findFirst()
+                .orElse(null);
+    }
+
+    public AttendanceLocationVerification getCheckOutVerification() {
+        if (verifications == null) return null;
+        return verifications.stream()
+                .filter(v -> v.getPunchType() == com.hareeshvar.attendance.enums.PunchType.CHECK_OUT)
+                .findFirst()
+                .orElse(null);
+    }
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
 

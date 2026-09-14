@@ -31,14 +31,14 @@ export const attendanceService = {
     const response = await api.delete(`/attendance/${id}`);
     return response.data;
   },
-  checkIn: async (userId) => {
+  checkIn: async (userId, locationData = null) => {
     const url = (userId && userId !== 'null') ? `/attendance/checkin/${userId}` : '/attendance/checkin';
-    const response = await api.post(url);
+    const response = await api.post(url, locationData);
     return response.data;
   },
-  checkOut: async (userId) => {
+  checkOut: async (userId, locationData = null) => {
     const url = (userId && userId !== 'null') ? `/attendance/checkout/${userId}` : '/attendance/checkout';
-    const response = await api.post(url);
+    const response = await api.post(url, locationData);
     return response.data;
   },
 };

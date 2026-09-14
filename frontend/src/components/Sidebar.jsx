@@ -13,7 +13,8 @@ import {
   Shield,
   Clock3,
   UserCheck,
-  Activity
+  Activity,
+  MapPin
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -30,6 +31,7 @@ const Sidebar = () => {
           { name: 'Departments', path: '/departments', icon: Building2 },
           { name: 'Designations', path: '/designations', icon: Briefcase },
           { name: 'Shifts', path: '/shifts', icon: Clock3 },
+          { name: 'Workplaces', path: '/workplaces', icon: MapPin },
           { name: 'Attendance', path: '/attendance', icon: Clock },
           { name: 'Leaves', path: '/leaves', icon: CalendarDays },
           { name: 'Payroll', path: '/payrolls', icon: DollarSign },
@@ -46,6 +48,7 @@ const Sidebar = () => {
           { name: 'Departments', path: '/departments', icon: Building2 },
           { name: 'Designations', path: '/designations', icon: Briefcase },
           { name: 'Shifts', path: '/shifts', icon: Clock3 },
+          { name: 'Workplaces', path: '/workplaces', icon: MapPin },
           { name: 'Attendance Logs', path: '/attendance', icon: Clock },
           { name: 'Leave Requests', path: '/leaves', icon: CalendarDays },
           { name: 'Payroll', path: '/payrolls', icon: DollarSign },
@@ -69,6 +72,7 @@ const Sidebar = () => {
         return [
           { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
           { name: 'My Attendance', path: '/attendance', icon: Clock },
+          { name: 'My Workplaces', path: '/workplaces', icon: MapPin },
           { name: 'My Leaves', path: '/leaves', icon: CalendarDays },
           { name: 'My Payroll', path: '/payrolls', icon: DollarSign },
           { name: 'Notifications', path: '/notifications', icon: Bell },

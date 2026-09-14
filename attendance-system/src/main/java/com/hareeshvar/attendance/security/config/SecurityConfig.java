@@ -149,6 +149,18 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/leaves", "/api/v1/leaves/**").hasAnyRole("ADMIN", "HR", "EMPLOYEE")
 
                         // =========================
+                        // WORKPLACES
+                        // =========================
+                        .requestMatchers(HttpMethod.GET, "/api/v1/workplaces/my-workplaces").hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workplaces/assignments", "/api/v1/workplaces/assignments/**").hasAnyRole("ADMIN", "HR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/workplaces/assignments", "/api/v1/workplaces/assignments/**").hasAnyRole("ADMIN", "HR")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/workplaces", "/api/v1/workplaces/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/workplaces", "/api/v1/workplaces/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/workplaces", "/api/v1/workplaces/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/workplaces", "/api/v1/workplaces/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/workplaces", "/api/v1/workplaces/**").hasAnyRole("ADMIN", "HR", "MANAGER")
+
+                        // =========================
                         // ATTENDANCE
                         // =========================
                         .requestMatchers("/api/v1/attendance", "/api/v1/attendance/**").hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")

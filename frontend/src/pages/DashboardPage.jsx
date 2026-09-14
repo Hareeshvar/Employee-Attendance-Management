@@ -11,6 +11,7 @@ import {
   FileText,
   DollarSign,
   UserCheck,
+  MapPin,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { userService } from '../services/userService';
@@ -22,6 +23,7 @@ import { LoadingSpinner, ErrorState } from '../components/LoadingSpinner';
 import StatusBadge from '../components/StatusBadge';
 import Toast from '../components/Toast';
 import { formatDate, formatTime, getErrorMessage } from '../utils/formatters';
+import { getCurrentLocation } from '../utils/geolocation';
 import AttendanceAnalytics from '../components/analytics/AttendanceAnalytics';
 
 const DashboardPage = () => {
@@ -38,6 +40,7 @@ const DashboardPage = () => {
 
   const [selectedUserId, setSelectedUserId] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [geoStatus, setGeoStatus] = useState('');
   const [toast, setToast] = useState({ message: '', type: 'success' });
 
   const loadDashboardData = async () => {
@@ -73,29 +76,47 @@ const DashboardPage = () => {
 
   const handleSelfCheckIn = async () => {
     setActionLoading(true);
+    setGeoStatus('');
     try {
-      const targetId = (isAdmin || isHr) && selectedUserId ? selectedUserId : null;
-      await attendanceService.checkIn(targetId);
+      const isProxy = (isAdmin || isHr) && selectedUserId;
+      let locationPayload = null;
+      if (!isProxy) {
+        setGeoStatus('Acquiring high-accuracy GPS coordinates...');
+        const coords = await getCurrentLocation();
+        locationPayload = coords;
+        setGeoStatus('Verifying workplace perimeter...');
+      }
+      await attendanceService.checkIn(isProxy ? selectedUserId : null, locationPayload);
       setToast({ message: 'Successfully checked in!', type: 'success' });
       loadDashboardData();
     } catch (err) {
       setToast({ message: getErrorMessage(err), type: 'error' });
     } finally {
       setActionLoading(false);
+      setGeoStatus('');
     }
   };
 
   const handleSelfCheckOut = async () => {
     setActionLoading(true);
+    setGeoStatus('');
     try {
-      const targetId = (isAdmin || isHr) && selectedUserId ? selectedUserId : null;
-      await attendanceService.checkOut(targetId);
+      const isProxy = (isAdmin || isHr) && selectedUserId;
+      let locationPayload = null;
+      if (!isProxy) {
+        setGeoStatus('Acquiring high-accuracy GPS coordinates...');
+        const coords = await getCurrentLocation();
+        locationPayload = coords;
+        setGeoStatus('Verifying workplace perimeter...');
+      }
+      await attendanceService.checkOut(isProxy ? selectedUserId : null, locationPayload);
       setToast({ message: 'Successfully checked out!', type: 'success' });
       loadDashboardData();
     } catch (err) {
       setToast({ message: getErrorMessage(err), type: 'error' });
     } finally {
       setActionLoading(false);
+      setGeoStatus('');
     }
   };
 
@@ -217,6 +238,27 @@ const DashboardPage = () => {
             <LogOut size={18} />
             <span>Check Out</span>
           </button>
+
+          {geoStatus && (
+            <div
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '0.825rem',
+                color: '#60a5fa',
+                background: 'rgba(59, 130, 246, 0.1)',
+                padding: '0.5rem 0.85rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid rgba(59, 130, 246, 0.25)',
+                marginTop: '0.5rem',
+              }}
+            >
+              <MapPin size={15} style={{ animation: 'pulse 1.5s infinite' }} />
+              <span>{geoStatus}</span>
+            </div>
+          )}
         </div>
       </div>
 

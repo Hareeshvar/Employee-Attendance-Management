@@ -50,4 +50,8 @@ public class AttendanceResponseDTO {
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    private LocationVerificationResponseDTO checkInVerification;
+
+    private LocationVerificationResponseDTO checkOutVerification;
 }

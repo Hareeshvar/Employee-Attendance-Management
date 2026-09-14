@@ -45,6 +45,20 @@ public enum AuditAction {
     // Report actions
     REPORT_GENERATED,
 
+    // Workplace actions
+    WORKPLACE_CREATED,
+    WORKPLACE_UPDATED,
+    WORKPLACE_ACTIVATED,
+    WORKPLACE_DEACTIVATED,
+    WORKPLACE_DELETED,
+    WORKPLACE_ASSIGNED,
+
+    // Geofence & Location verification actions
+    GEOFENCE_VERIFICATION_SUCCESS,
+    GEOFENCE_VERIFICATION_FAILED,
+    LOCATION_ACCURACY_REJECTED,
+    ADMIN_ATTENDANCE_OVERRIDE,
+
     // Authentication & Security actions
     LOGIN_SUCCESS,
     LOGIN_FAILED,

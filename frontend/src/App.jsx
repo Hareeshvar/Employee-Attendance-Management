@@ -20,6 +20,7 @@ import ReportsPage from './pages/ReportsPage';
 import RolesPage from './pages/RolesPage';
 import ProfilePage from './pages/ProfilePage';
 import AuditLogsPage from './pages/AuditLogsPage';
+import WorkplacesPage from './pages/WorkplacesPage';
 
 const Layout = () => {
   return (
@@ -68,6 +69,7 @@ const App = () => {
               <Route path="/leaves" element={<LeavesPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/workplaces" element={<WorkplacesPage />} />
 
               <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'HR', 'MANAGER']} />}>
                 <Route path="/users" element={<UsersPage />} />
