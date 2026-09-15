@@ -18,5 +18,7 @@ public interface PayrollMapper {
 
     @Mapping(source = "user.userId", target = "userId")
     @Mapping(source = "user.username", target = "username")
+    @Mapping(source = "user.firstName", target = "userFirstName")
+    @Mapping(source = "user.lastName", target = "userLastName")
     PayrollResponseDTO toResponse(Payroll payroll);
 }

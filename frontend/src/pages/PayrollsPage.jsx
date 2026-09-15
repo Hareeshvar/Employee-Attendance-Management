@@ -9,6 +9,11 @@ import Toast from '../components/Toast';
 import Pagination from '../components/Pagination';
 import { formatCurrency, getErrorMessage } from '../utils/formatters';
 
+const MONTH_NAMES = [
+  'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+  'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER',
+];
+
 const PayrollsPage = () => {
   const { isAdmin } = useAuth();
   const [payrolls, setPayrolls] = useState([]);
@@ -38,7 +43,7 @@ const PayrollsPage = () => {
 
   const [formData, setFormData] = useState({
     userId: '',
-    month: 'JANUARY',
+    month: MONTH_NAMES[new Date().getMonth()],
     year: new Date().getFullYear(),
     basicSalary: 5000,
     bonus: 500,
@@ -115,14 +120,14 @@ const PayrollsPage = () => {
 
   const calculatedNetSalary = Math.max(
     0,
-    (Number(formData.basicSalary) || 0) + (Number(formData.bonus) || 0) - (Number(formData.deduction) || 0)
+    Math.round(((Number(formData.basicSalary) || 0) + (Number(formData.bonus) || 0) - (Number(formData.deduction) || 0)) * 100) / 100
   );
 
   const openCreateModal = () => {
     setSelectedPayroll(null);
     setFormData({
       userId: users.length > 0 ? users[0].userId : '',
-      month: 'JANUARY',
+      month: MONTH_NAMES[new Date().getMonth()],
       year: new Date().getFullYear(),
       basicSalary: 5000,
       bonus: 500,
@@ -274,7 +279,7 @@ const PayrollsPage = () => {
                       <td style={{ fontWeight: 700 }}>#{id}</td>
                       <td>
                         <div style={{ fontWeight: 600 }}>
-                          {p.userFirstName ? `${p.userFirstName} ${p.userLastName}` : `User #${p.userId}`}
+                          {p.userFirstName ? `${p.userFirstName} ${p.userLastName || ''}`.trim() : p.username ? p.username : `User #${p.userId}`}
                         </div>
                       </td>
                       <td>

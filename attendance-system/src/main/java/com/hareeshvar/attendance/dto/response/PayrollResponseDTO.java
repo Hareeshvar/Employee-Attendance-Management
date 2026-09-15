@@ -18,6 +18,8 @@ public class PayrollResponseDTO {
     private Long payrollId;
     private Long userId;
     private String username;
+    private String userFirstName;
+    private String userLastName;
     private String month;
     private Integer year;
     private Double basicSalary;

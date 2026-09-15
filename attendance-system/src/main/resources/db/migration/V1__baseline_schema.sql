@@ -118,6 +118,8 @@ CREATE TABLE IF NOT EXISTS payrolls (
     bonus DOUBLE NOT NULL,
     deduction DOUBLE NOT NULL,
     net_salary DOUBLE NOT NULL,
+    allowances DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    overtime_pay DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     created_at DATETIME(6),
     updated_at DATETIME(6),
     CONSTRAINT fk_payrolls_user FOREIGN KEY (user_id) REFERENCES users(user_id)
