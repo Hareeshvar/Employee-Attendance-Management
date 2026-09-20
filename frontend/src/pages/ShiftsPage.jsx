@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Clock, UserCheck, Trash2, Edit, Calendar } from 'lucide-react';
+import { Plus, Clock, UserCheck, Trash2, Edit, Calendar, AlertCircle } from 'lucide-react';
 import { shiftService } from '../services/shiftService';
 import { employeeShiftService } from '../services/employeeShiftService';
 import { userService } from '../services/userService';
+import { useAuth } from '../context/AuthContext';
 import { LoadingSpinner, EmptyState, ErrorState } from '../components/LoadingSpinner';
 import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
@@ -10,6 +11,9 @@ import Toast from '../components/Toast';
 import { formatDate, formatTime, getErrorMessage } from '../utils/formatters';
 
 const ShiftsPage = () => {
+  const { isAdmin, isHr } = useAuth();
+  const canManage = isAdmin || isHr;
+
   const [activeTab, setActiveTab] = useState('templates'); // 'templates' | 'assignments'
   const [shifts, setShifts] = useState([]);
   const [employeeShifts, setEmployeeShifts] = useState([]);
@@ -31,6 +35,7 @@ const ShiftsPage = () => {
     startTime: '09:00',
     endTime: '17:00',
     workingHours: 8,
+    graceMinutes: 15,
     description: '',
   });
 
@@ -45,14 +50,18 @@ const ShiftsPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const [shiftsData, empShiftsData, usersData] = await Promise.all([
+      const [shiftsData, empShiftsData, usersRes] = await Promise.all([
         shiftService.getAll(),
         employeeShiftService.getAll().catch(() => []),
-        userService.getAll().catch(() => []),
+        userService.getAll({ page: 0, size: 1000 }).catch(() => ({ content: [] })),
       ]);
-      setShifts(shiftsData);
-      setEmployeeShifts(empShiftsData);
-      setUsers(usersData);
+      const shiftList = Array.isArray(shiftsData) ? shiftsData : [];
+      const empShiftList = Array.isArray(empShiftsData) ? empShiftsData : [];
+      const userList = usersRes?.content || (Array.isArray(usersRes) ? usersRes : []);
+
+      setShifts(shiftList);
+      setEmployeeShifts(empShiftList);
+      setUsers(userList);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -72,6 +81,7 @@ const ShiftsPage = () => {
         startTime: shift.startTime || '09:00',
         endTime: shift.endTime || '17:00',
         workingHours: shift.workingHours || 8,
+        graceMinutes: shift.graceMinutes !== undefined ? shift.graceMinutes : 15,
         description: shift.description || '',
       });
     } else {
@@ -80,6 +90,7 @@ const ShiftsPage = () => {
         startTime: '09:00',
         endTime: '17:00',
         workingHours: 8,
+        graceMinutes: 15,
         description: '',
       });
     }
@@ -88,8 +99,8 @@ const ShiftsPage = () => {
 
   const openAssignModal = () => {
     setAssignForm({
-      userId: users.length > 0 ? users[0].userId : '',
-      shiftId: shifts.length > 0 ? shifts[0].shiftId || shifts[0].id : '',
+      userId: users.length > 0 ? String(users[0].userId) : '',
+      shiftId: shifts.length > 0 ? String(shifts[0].shiftId || shifts[0].id) : '',
       effectiveDate: new Date().toISOString().split('T')[0],
       status: 'ACTIVE',
     });
@@ -101,10 +112,11 @@ const ShiftsPage = () => {
     setSubmitting(true);
 
     const payload = {
-      shiftName: shiftForm.shiftName,
+      shiftName: shiftForm.shiftName.trim(),
       startTime: shiftForm.startTime.length === 5 ? `${shiftForm.startTime}:00` : shiftForm.startTime,
       endTime: shiftForm.endTime.length === 5 ? `${shiftForm.endTime}:00` : shiftForm.endTime,
       workingHours: Number(shiftForm.workingHours),
+      graceMinutes: Number(shiftForm.graceMinutes ?? 15),
       description: shiftForm.description,
     };
 
@@ -127,6 +139,10 @@ const ShiftsPage = () => {
 
   const handleAssignSubmit = async (e) => {
     e.preventDefault();
+    if (!assignForm.userId || !assignForm.shiftId) {
+      setToast({ message: 'Please select both an employee and a shift template.', type: 'error' });
+      return;
+    }
     setSubmitting(true);
 
     const payload = {
@@ -185,16 +201,18 @@ const ShiftsPage = () => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button className="btn btn-secondary" onClick={() => openShiftModal()}>
-            <Plus size={18} />
-            <span>Create Shift Template</span>
-          </button>
-          <button className="btn btn-primary" onClick={openAssignModal}>
-            <UserCheck size={18} />
-            <span>Assign Shift to Employee</span>
-          </button>
-        </div>
+        {canManage && (
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button className="btn btn-secondary" onClick={() => openShiftModal()}>
+              <Plus size={18} />
+              <span>Create Shift Template</span>
+            </button>
+            <button className="btn btn-primary" onClick={openAssignModal}>
+              <UserCheck size={18} />
+              <span>Assign Shift to Employee</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tabs Header */}
@@ -243,8 +261,9 @@ const ShiftsPage = () => {
                   <th>Start Time</th>
                   <th>End Time</th>
                   <th>Working Hours</th>
+                  <th>Grace Period</th>
                   <th>Description</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  {canManage && <th style={{ textAlign: 'right' }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -257,17 +276,22 @@ const ShiftsPage = () => {
                       <td>{formatTime(s.startTime)}</td>
                       <td>{formatTime(s.endTime)}</td>
                       <td>{s.workingHours} hrs</td>
+                      <td>{s.graceMinutes ?? 15} mins</td>
                       <td style={{ color: 'var(--text-secondary)' }}>{s.description || 'N/A'}</td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
-                          <button className="btn btn-secondary btn-sm" onClick={() => openShiftModal(s)}>
-                            <Edit size={15} />
-                          </button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteShift(id)}>
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      </td>
+                      {canManage && (
+                        <td style={{ textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => openShiftModal(s)} title="Edit Shift">
+                              <Edit size={15} />
+                            </button>
+                            {isAdmin && (
+                              <button className="btn btn-danger btn-sm" onClick={() => handleDeleteShift(id)} title="Delete Shift">
+                                <Trash2 size={15} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -287,11 +311,11 @@ const ShiftsPage = () => {
               <thead>
                 <tr>
                   <th>Assignment ID</th>
-                  <th>User ID</th>
-                  <th>Shift ID</th>
+                  <th>Employee</th>
+                  <th>Shift Template</th>
                   <th>Effective Date</th>
                   <th>Status</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  {canManage && <th style={{ textAlign: 'right' }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -300,17 +324,19 @@ const ShiftsPage = () => {
                   return (
                     <tr key={id}>
                       <td style={{ fontWeight: 700 }}>#{id}</td>
-                      <td>User #{es.userId}</td>
-                      <td>Shift #{es.shiftId}</td>
+                      <td style={{ fontWeight: 600 }}>{es.username ? `${es.username} (#${es.userId})` : `User #${es.userId}`}</td>
+                      <td>{es.shiftName || `Shift #${es.shiftId}`}</td>
                       <td>{formatDate(es.effectiveDate)}</td>
                       <td>
                         <StatusBadge status={es.status || 'ACTIVE'} />
                       </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <button className="btn btn-danger btn-sm" onClick={() => handleDeleteAssignment(id)}>
-                          <Trash2 size={15} />
-                        </button>
-                      </td>
+                      {canManage && (
+                        <td style={{ textAlign: 'right' }}>
+                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteAssignment(id)} title="Remove Assignment">
+                            <Trash2 size={15} />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -361,15 +387,32 @@ const ShiftsPage = () => {
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Working Hours *</label>
-            <input
-              type="number"
-              className="form-input"
-              required
-              value={shiftForm.workingHours}
-              onChange={(e) => setShiftForm({ ...shiftForm, workingHours: e.target.value })}
-            />
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Working Hours *</label>
+              <input
+                type="number"
+                className="form-input"
+                required
+                min="1"
+                max="24"
+                value={shiftForm.workingHours}
+                onChange={(e) => setShiftForm({ ...shiftForm, workingHours: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Grace Period (Minutes)</label>
+              <input
+                type="number"
+                className="form-input"
+                min="0"
+                max="120"
+                placeholder="15"
+                value={shiftForm.graceMinutes}
+                onChange={(e) => setShiftForm({ ...shiftForm, graceMinutes: e.target.value })}
+              />
+            </div>
           </div>
 
           <div className="form-group">
@@ -396,6 +439,13 @@ const ShiftsPage = () => {
       {/* Assign Shift Modal */}
       <Modal isOpen={isAssignModalOpen} onClose={() => setIsAssignModalOpen(false)} title="Assign Shift to Employee">
         <form onSubmit={handleAssignSubmit}>
+          {shifts.length === 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.3)', borderRadius: '0.5rem', color: '#eab308', marginBottom: '1rem', fontSize: '0.875rem' }}>
+              <AlertCircle size={16} />
+              <span>No shift templates found. Please create a shift template first.</span>
+            </div>
+          )}
+
           <div className="form-group">
             <label className="form-label">Employee User *</label>
             {users.length > 0 ? (
@@ -408,7 +458,7 @@ const ShiftsPage = () => {
                 <option value="">Select Employee</option>
                 {users.map((u) => (
                   <option key={u.userId} value={u.userId}>
-                    {u.firstName} {u.lastName} (#{u.userId})
+                    {u.firstName} {u.lastName} ({u.username} - {u.roleName || 'Employee'})
                   </option>
                 ))}
               </select>
@@ -429,15 +479,19 @@ const ShiftsPage = () => {
             <select
               className="form-select"
               required
+              disabled={shifts.length === 0}
               value={assignForm.shiftId}
               onChange={(e) => setAssignForm({ ...assignForm, shiftId: e.target.value })}
             >
               <option value="">Select Shift</option>
-              {shifts.map((s) => (
-                <option key={s.shiftId || s.id} value={s.shiftId || s.id}>
-                  {s.shiftName} ({formatTime(s.startTime)} - {formatTime(s.endTime)})
-                </option>
-              ))}
+              {shifts.map((s) => {
+                const sId = s.shiftId || s.id;
+                return (
+                  <option key={sId} value={sId}>
+                    {s.shiftName} ({formatTime(s.startTime)} - {formatTime(s.endTime)} / {s.workingHours} hrs)
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -470,7 +524,7 @@ const ShiftsPage = () => {
             <button type="button" className="btn btn-secondary" onClick={() => setIsAssignModalOpen(false)}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
+            <button type="submit" className="btn btn-primary" disabled={submitting || shifts.length === 0}>
               {submitting ? 'Assigning...' : 'Assign Shift'}
             </button>
           </div>

@@ -2,6 +2,7 @@ package com.hareeshvar.attendance.dto.request;
 
 import java.time.LocalTime;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
@@ -23,7 +24,8 @@ public class ShiftRequestDTO {
     @NotNull
     private Integer workingHours;
 
-    private Integer graceMinutes;
+    @Min(0)
+    private Integer graceMinutes = 15;
 
     private String description;
 

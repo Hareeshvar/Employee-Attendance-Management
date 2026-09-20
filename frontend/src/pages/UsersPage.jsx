@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Search, Trash2, Edit, Filter } from 'lucide-react';
 import { userService } from '../services/userService';
 import { roleService } from '../services/roleService';
@@ -12,6 +13,9 @@ import Pagination from '../components/Pagination';
 import { getErrorMessage } from '../utils/formatters';
 
 const UsersPage = () => {
+  const [searchParams] = useSearchParams();
+  const urlSearch = searchParams.get('search') || '';
+
   const [users, setUsers] = useState([]);
   const [paginationInfo, setPaginationInfo] = useState({
     pageNumber: 0,
@@ -28,10 +32,19 @@ const UsersPage = () => {
 
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(urlSearch);
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+
+  // Sync when URL search parameter changes
+  useEffect(() => {
+    const q = searchParams.get('search');
+    if (q !== null && q !== search) {
+      setSearch(q);
+      setPage(0);
+    }
+  }, [searchParams]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

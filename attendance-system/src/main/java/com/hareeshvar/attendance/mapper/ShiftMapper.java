@@ -11,6 +11,7 @@ import com.hareeshvar.attendance.entity.Shift;
 public interface ShiftMapper {
 
     @Mapping(target = "shiftId", ignore = true)
+    @Mapping(target = "isActive", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     Shift toEntity(ShiftRequestDTO dto);

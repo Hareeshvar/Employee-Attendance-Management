@@ -36,6 +36,12 @@ public class ShiftServiceImpl implements ShiftService {
         }
 
         Shift shift = shiftMapper.toEntity(request);
+        if (shift.getGraceMinutes() == null) {
+            shift.setGraceMinutes(request.getGraceMinutes() != null ? request.getGraceMinutes() : 15);
+        }
+        if (shift.getIsActive() == null) {
+            shift.setIsActive(true);
+        }
         Shift saved = shiftRepository.save(shift);
 
         auditLogService.logSuccess(
@@ -81,6 +87,9 @@ public class ShiftServiceImpl implements ShiftService {
         shift.setStartTime(request.getStartTime());
         shift.setEndTime(request.getEndTime());
         shift.setWorkingHours(request.getWorkingHours());
+        if (request.getGraceMinutes() != null) {
+            shift.setGraceMinutes(request.getGraceMinutes());
+        }
         shift.setDescription(request.getDescription());
 
         Shift updated = shiftRepository.save(shift);

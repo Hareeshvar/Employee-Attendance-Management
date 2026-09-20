@@ -1,7 +1,8 @@
 import React from 'react';
-import { LogOut, Search, Bell, Shield, User } from 'lucide-react';
+import { LogOut, Bell, Shield, User } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import GlobalSearch from './GlobalSearch';
 
 const Navbar = () => {
   const { firstName, lastName, username, role, logout } = useAuth();
@@ -21,35 +22,8 @@ const Navbar = () => {
 
   return (
     <header className="navbar">
-      {/* Search Input Bar Mockup */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, maxWidth: '400px' }}>
-        <div style={{ position: 'relative', width: '100%' }}>
-          <Search
-            size={16}
-            style={{
-              position: 'absolute',
-              left: '0.85rem',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: 'var(--text-muted)',
-            }}
-          />
-          <input
-            type="text"
-            className="form-input"
-            style={{
-              paddingLeft: '2.4rem',
-              paddingTop: '0.5rem',
-              paddingBottom: '0.5rem',
-              fontSize: '0.825rem',
-              borderRadius: 'var(--radius-full)',
-              background: 'rgba(15, 21, 35, 0.6)',
-            }}
-            placeholder="Search records, staff, shifts..."
-            readOnly
-          />
-        </div>
-      </div>
+      {/* Global Interactive Search */}
+      <GlobalSearch />
 
       {/* Right Controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>

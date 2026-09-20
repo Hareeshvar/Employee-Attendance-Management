@@ -137,7 +137,8 @@ public class SecurityConfig {
                         // =========================
                         .requestMatchers(HttpMethod.POST, "/api/v1/shifts", "/api/v1/shifts/**", "/api/v1/employee-shifts", "/api/v1/employee-shifts/**").hasAnyRole("ADMIN", "HR")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/shifts", "/api/v1/shifts/**", "/api/v1/employee-shifts", "/api/v1/employee-shifts/**").hasAnyRole("ADMIN", "HR")
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/shifts", "/api/v1/shifts/**", "/api/v1/employee-shifts", "/api/v1/employee-shifts/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/shifts", "/api/v1/shifts/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/employee-shifts", "/api/v1/employee-shifts/**").hasAnyRole("ADMIN", "HR")
                         .requestMatchers(HttpMethod.GET, "/api/v1/shifts", "/api/v1/shifts/**", "/api/v1/employee-shifts", "/api/v1/employee-shifts/**").hasAnyRole("ADMIN", "HR", "MANAGER", "EMPLOYEE")
 
                         // =========================
