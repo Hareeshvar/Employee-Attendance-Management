@@ -278,10 +278,10 @@ const UsersPage = () => {
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
             <select
               className="form-select"
-              style={{ width: '160px' }}
+              style={{ flex: '1 1 140px', minWidth: '130px' }}
               value={departmentFilter}
               onChange={(e) => handleDepartmentFilterChange(e.target.value)}
             >
@@ -295,7 +295,7 @@ const UsersPage = () => {
 
             <select
               className="form-select"
-              style={{ width: '140px' }}
+              style={{ flex: '1 1 130px', minWidth: '120px' }}
               value={statusFilter}
               onChange={(e) => handleStatusFilterChange(e.target.value)}
             >
@@ -307,7 +307,7 @@ const UsersPage = () => {
 
             <select
               className="form-select"
-              style={{ width: '140px' }}
+              style={{ flex: '1 1 130px', minWidth: '120px' }}
               value={roleFilter}
               onChange={(e) => handleRoleFilterChange(e.target.value)}
             >

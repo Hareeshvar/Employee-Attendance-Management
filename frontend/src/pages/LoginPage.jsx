@@ -66,7 +66,7 @@ const LoginPage = () => {
         style={{
           width: '100%',
           maxWidth: '440px',
-          padding: '2.75rem 2.5rem',
+          padding: 'clamp(1.5rem, 5vw, 2.75rem) clamp(1.25rem, 5vw, 2.5rem)',
           background: 'rgba(22, 30, 46, 0.75)',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',

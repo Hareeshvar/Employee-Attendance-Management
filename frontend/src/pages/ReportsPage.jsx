@@ -172,10 +172,10 @@ const ReportsPage = () => {
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
             <select
               className="form-select"
-              style={{ width: '180px' }}
+              style={{ flex: '1 1 160px', minWidth: '140px' }}
               value={reportTypeFilter}
               onChange={(e) => handleReportTypeFilterChange(e.target.value)}
             >

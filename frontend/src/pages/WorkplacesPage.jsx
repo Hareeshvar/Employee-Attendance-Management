@@ -219,7 +219,7 @@ const WorkplacesPage = () => {
         </div>
 
         {(isAdmin || isHr) && (
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             {isAdmin && (
               <button className="btn btn-secondary" onClick={() => openWorkplaceModal()}>
                 <Plus size={18} />
@@ -235,7 +235,7 @@ const WorkplacesPage = () => {
       </div>
 
       {/* Tabs Header */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         {(isAdmin || isHr) && (
           <button
             onClick={() => setActiveTab('locations')}
@@ -247,6 +247,7 @@ const WorkplacesPage = () => {
               color: activeTab === 'locations' ? 'var(--primary)' : 'var(--text-secondary)',
               fontWeight: 700,
               cursor: 'pointer',
+              whiteSpace: 'nowrap',
             }}
           >
             All Workplaces ({workplaces.length})
@@ -262,9 +263,10 @@ const WorkplacesPage = () => {
             color: activeTab === 'my-workplaces' ? 'var(--primary)' : 'var(--text-secondary)',
             fontWeight: 700,
             cursor: 'pointer',
+            whiteSpace: 'nowrap',
           }}
         >
-          My Authorized Locations ({myWorkplaces.length})
+          My Assigned Workplaces ({myWorkplaces.length})
         </button>
       </div>
 

@@ -386,7 +386,7 @@ const GlobalSearch = () => {
             boxShadow: isOpen ? '0 0 0 3px rgba(59, 130, 246, 0.25)' : 'none',
             transition: 'all 0.2s ease',
           }}
-          placeholder="Search pages, staff, shifts (Ctrl + K)..."
+          placeholder="Search pages, staff, shifts..."
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -462,9 +462,8 @@ const GlobalSearch = () => {
             position: 'absolute',
             top: 'calc(100% + 8px)',
             left: 0,
-            width: '100%',
-            minWidth: '380px',
-            maxWidth: '520px',
+            width: 'min(520px, calc(100vw - 2rem))',
+            maxWidth: 'calc(100vw - 2rem)',
             background: 'rgba(15, 23, 42, 0.96)',
             backdropFilter: 'blur(24px)',
             WebkitBackdropFilter: 'blur(24px)',

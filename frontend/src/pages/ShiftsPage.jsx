@@ -202,7 +202,7 @@ const ShiftsPage = () => {
         </div>
 
         {canManage && (
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <button className="btn btn-secondary" onClick={() => openShiftModal()}>
               <Plus size={18} />
               <span>Create Shift Template</span>
@@ -216,7 +216,7 @@ const ShiftsPage = () => {
       </div>
 
       {/* Tabs Header */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <button
           onClick={() => setActiveTab('templates')}
           style={{
@@ -227,6 +227,7 @@ const ShiftsPage = () => {
             color: activeTab === 'templates' ? 'var(--primary)' : 'var(--text-secondary)',
             fontWeight: 700,
             cursor: 'pointer',
+            whiteSpace: 'nowrap',
           }}
         >
           Shift Templates ({shifts.length})
@@ -241,6 +242,7 @@ const ShiftsPage = () => {
             color: activeTab === 'assignments' ? 'var(--primary)' : 'var(--text-secondary)',
             fontWeight: 700,
             cursor: 'pointer',
+            whiteSpace: 'nowrap',
           }}
         >
           Employee Shift Assignments ({employeeShifts.length})

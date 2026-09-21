@@ -346,10 +346,10 @@ const AttendancePage = () => {
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
             <select
               className="form-select"
-              style={{ width: '140px' }}
+              style={{ flex: '1 1 130px', minWidth: '120px' }}
               value={statusFilter}
               onChange={(e) => handleStatusFilterChange(e.target.value)}
             >
@@ -364,7 +364,7 @@ const AttendancePage = () => {
             <input
               type="date"
               className="form-input"
-              style={{ width: '140px' }}
+              style={{ flex: '1 1 130px', minWidth: '120px' }}
               value={startDate}
               placeholder="Start Date"
               onChange={(e) => handleStartDateChange(e.target.value)}
@@ -373,7 +373,7 @@ const AttendancePage = () => {
             <input
               type="date"
               className="form-input"
-              style={{ width: '140px' }}
+              style={{ flex: '1 1 130px', minWidth: '120px' }}
               value={endDate}
               placeholder="End Date"
               onChange={(e) => handleEndDateChange(e.target.value)}

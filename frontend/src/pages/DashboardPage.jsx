@@ -195,18 +195,18 @@ const DashboardPage = () => {
               Attendance Punch Station
             </h3>
           </div>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginLeft: '3.1rem' }}>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
             {(isAdmin || isHr)
               ? 'Log your personal attendance or manage check-in/out for registered staff.'
               : 'Record your daily check-in or check-out timestamp.'}
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', width: '100%', maxWidth: 'fit-content' }}>
           {(isAdmin || isHr) && users.length > 0 && (
             <select
               className="form-select"
-              style={{ width: '230px', borderRadius: 'var(--radius-md)' }}
+              style={{ flex: '1 1 200px', minWidth: '180px', borderRadius: 'var(--radius-md)' }}
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(e.target.value)}
             >

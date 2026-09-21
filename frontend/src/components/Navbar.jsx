@@ -1,10 +1,10 @@
 import React from 'react';
-import { LogOut, Bell, Shield, User } from 'lucide-react';
+import { LogOut, Bell, Shield, User, Menu } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import GlobalSearch from './GlobalSearch';
 
-const Navbar = () => {
+const Navbar = ({ onToggleSidebar }) => {
   const { firstName, lastName, username, role, logout } = useAuth();
   const navigate = useNavigate();
   const displayName = firstName ? `${firstName} ${lastName || ''}`.trim() : (username || 'User');
@@ -22,11 +22,29 @@ const Navbar = () => {
 
   return (
     <header className="navbar">
-      {/* Global Interactive Search */}
-      <GlobalSearch />
+      {/* Left side: Hamburger Toggle + Search */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
+        <button
+          className="navbar-mobile-toggle btn btn-secondary btn-sm"
+          onClick={onToggleSidebar}
+          aria-label="Toggle navigation menu"
+          style={{
+            width: 38,
+            height: 38,
+            padding: 0,
+            borderRadius: 'var(--radius-md)',
+            flexShrink: 0,
+          }}
+        >
+          <Menu size={20} />
+        </button>
+
+        {/* Global Interactive Search */}
+        <GlobalSearch />
+      </div>
 
       {/* Right Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
         {/* Notifications Icon Button */}
         <button
           className="btn btn-secondary btn-sm"
@@ -36,6 +54,7 @@ const Navbar = () => {
             height: 38,
             padding: 0,
             position: 'relative',
+            flexShrink: 0,
           }}
           onClick={() => navigate('/notifications')}
           title="Notifications"
@@ -55,7 +74,7 @@ const Navbar = () => {
         </button>
 
         {/* User Profile Pill Link */}
-        <Link to="/profile" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <Link to="/profile" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <div
             style={{
               width: 38,
@@ -69,20 +88,21 @@ const Navbar = () => {
               fontSize: '0.9rem',
               color: '#fff',
               boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+              flexShrink: 0,
             }}
           >
             {displayName.charAt(0).toUpperCase()}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+          <div className="navbar-user-text" style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {displayName}
             </span>
             <span
               style={{
-                fontSize: '0.675rem',
+                fontSize: '0.65rem',
                 fontWeight: 800,
-                padding: '0.1rem 0.5rem',
+                padding: '0.1rem 0.45rem',
                 borderRadius: 'var(--radius-full)',
                 width: 'fit-content',
                 textTransform: 'uppercase',
@@ -101,9 +121,10 @@ const Navbar = () => {
           className="btn btn-secondary btn-sm"
           onClick={logout}
           title="Sign out"
+          style={{ flexShrink: 0 }}
         >
           <LogOut size={16} />
-          <span>Logout</span>
+          <span className="navbar-logout-text">Logout</span>
         </button>
       </div>
     </header>

@@ -25,17 +25,17 @@ const Pagination = ({
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: '1rem',
-        padding: '1rem 1.5rem',
+        gap: '0.75rem',
+        padding: '0.85rem 1.25rem',
         background: 'rgba(15, 23, 42, 0.6)',
         borderTop: '1px solid var(--border-color)',
         borderBottomLeftRadius: 'var(--radius-lg)',
         borderBottomRightRadius: 'var(--radius-lg)',
-        fontSize: '0.875rem',
+        fontSize: '0.85rem',
         color: 'var(--text-secondary)',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
         <span>
           Showing <strong style={{ color: 'var(--text-primary)' }}>{startItem}</strong> to{' '}
           <strong style={{ color: 'var(--text-primary)' }}>{endItem}</strong> of{' '}

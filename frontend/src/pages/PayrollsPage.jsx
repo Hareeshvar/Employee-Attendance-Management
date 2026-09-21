@@ -227,10 +227,10 @@ const PayrollsPage = () => {
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
             <select
               className="form-select"
-              style={{ width: '140px' }}
+              style={{ flex: '1 1 130px', minWidth: '120px' }}
               value={monthFilter}
               onChange={(e) => handleMonthFilterChange(e.target.value)}
             >
@@ -246,11 +246,23 @@ const PayrollsPage = () => {
             <input
               type="number"
               className="form-input"
-              style={{ width: '110px' }}
+              style={{ flex: '1 1 100px', minWidth: '90px' }}
               placeholder="Year"
               value={yearFilter}
               onChange={(e) => handleYearFilterChange(e.target.value)}
             />
+
+            <select
+              className="form-select"
+              style={{ flex: '1 1 130px', minWidth: '120px' }}
+              value={statusFilter}
+              onChange={(e) => handleStatusFilterChange(e.target.value)}
+            >
+              <option value="">All Statuses</option>
+              <option value="PAID">PAID</option>
+              <option value="PENDING">PENDING</option>
+              <option value="FAILED">FAILED</option>
+            </select>
           </div>
         </div>
 

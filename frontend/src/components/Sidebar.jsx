@@ -14,11 +14,12 @@ import {
   Clock3,
   UserCheck,
   Activity,
-  MapPin
+  MapPin,
+  X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen = false, onClose }) => {
   const { role, firstName, lastName, username } = useAuth();
   const displayName = firstName ? `${firstName} ${lastName || ''}`.trim() : (username || 'User');
 
@@ -84,10 +85,20 @@ const Sidebar = () => {
   const navItems = getNavItems();
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-logo">
-        <Clock size={28} style={{ color: 'var(--primary)' }} />
-        <span>Attendify HR</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <Clock size={28} style={{ color: 'var(--primary)' }} />
+          <span>Attendify HR</span>
+        </div>
+        {/* Mobile Dismiss Button */}
+        <button
+          className="sidebar-close-btn"
+          onClick={onClose}
+          aria-label="Close navigation"
+        >
+          <X size={20} />
+        </button>
       </div>
 
       <nav className="sidebar-nav">
@@ -101,6 +112,7 @@ const Sidebar = () => {
                 `nav-item ${isActive ? 'active' : ''}`
               }
               end={item.path === '/'}
+              onClick={onClose}
             >
               <Icon size={18} />
               <span>{item.name}</span>

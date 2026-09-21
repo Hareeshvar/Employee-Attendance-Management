@@ -215,10 +215,10 @@ const LeavesPage = () => {
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
             <select
               className="form-select"
-              style={{ width: '140px' }}
+              style={{ flex: '1 1 130px', minWidth: '120px' }}
               value={statusFilter}
               onChange={(e) => handleStatusFilterChange(e.target.value)}
             >
@@ -230,7 +230,7 @@ const LeavesPage = () => {
 
             <select
               className="form-select"
-              style={{ width: '140px' }}
+              style={{ flex: '1 1 130px', minWidth: '120px' }}
               value={leaveTypeFilter}
               onChange={(e) => handleLeaveTypeFilterChange(e.target.value)}
             >

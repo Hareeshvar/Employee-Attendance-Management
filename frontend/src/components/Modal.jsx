@@ -8,7 +8,7 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = '560px' }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div
         className="modal-content"
-        style={{ maxWidth }}
+        style={{ maxWidth: `min(${maxWidth}, 95vw)` }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
@@ -18,15 +18,21 @@ const Modal = ({ isOpen, onClose, title, children, maxWidth = '560px' }) => {
           <button
             onClick={onClose}
             style={{
-              background: 'none',
+              background: 'rgba(255, 255, 255, 0.06)',
               border: 'none',
-              color: 'var(--text-muted)',
+              color: 'var(--text-secondary)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              height: 32,
+              borderRadius: 'var(--radius-sm)',
+              transition: 'var(--transition-fast)',
             }}
+            aria-label="Close dialog"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
         <div className="modal-body">{children}</div>
