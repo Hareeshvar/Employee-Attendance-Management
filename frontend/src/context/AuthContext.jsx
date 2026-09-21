@@ -20,6 +20,7 @@ export const AuthProvider = ({ children }) => {
     } catch (e) {
       // Ignore logout errors
     } finally {
+      localStorage.removeItem('has_session');
       updateToken(null);
       setUser(null);
       localStorage.removeItem('token');
@@ -32,12 +33,20 @@ export const AuthProvider = ({ children }) => {
   // Silent authentication restoration on application startup via HttpOnly refresh cookie
   useEffect(() => {
     const initAuth = async () => {
+      const hasSession = localStorage.getItem('has_session') === 'true' || !!localStorage.getItem('token');
+      if (!hasSession) {
+        setLoading(false);
+        return;
+      }
+
       try {
         const data = await authService.refresh();
+        localStorage.setItem('has_session', 'true');
         updateToken(data.token);
         setUser(data);
       } catch (err) {
         // Silent refresh failed -> User is unauthenticated (guest)
+        localStorage.removeItem('has_session');
         updateToken(null);
         setUser(null);
       } finally {
@@ -66,6 +75,7 @@ export const AuthProvider = ({ children }) => {
         password: passwordInput,
       });
 
+      localStorage.setItem('has_session', 'true');
       updateToken(data.token);
       setUser(data);
       return data;
